@@ -4,11 +4,12 @@
 
 using namespace std;
 
-#define NUM_FIELDERS 10
+#define NUM_FIELDERS 9  
 
 pthread_t bowler;
 pthread_t batsmen[2];
 pthread_t fielders[NUM_FIELDERS];
+pthread_t wicket_keeper;  
 
 int batsman_ids[2] = {1, 2};
 int fielder_ids[NUM_FIELDERS];
@@ -25,7 +26,10 @@ void create_all_threads() {
         fielder_ids[i] = i + 1;
         pthread_create(&fielders[i], NULL, fielder_thread, &fielder_ids[i]);
     }
-    cout << "Threads initialized."<<endl;
+
+    pthread_create(&wicket_keeper, NULL, wicket_keeper_thread, NULL);
+
+    cout << "Threads initialized." << endl;
 }
 
 void join_all_threads() {
@@ -38,4 +42,6 @@ void join_all_threads() {
     for (int i = 0; i < NUM_FIELDERS; i++) {
         pthread_join(fielders[i], NULL);
     }
+
+    pthread_join(wicket_keeper, NULL);
 }

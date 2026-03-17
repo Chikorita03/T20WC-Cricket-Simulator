@@ -33,3 +33,11 @@ void* fielder_thread(void* arg) {
     }
     return NULL;
 } 
+
+void* wicket_keeper_thread(void* arg) {
+    while (match_running) {
+        cout << "[Wicket Keeper] Ready behind stumps" << endl;
+        sleep(1);
+    }
+    return NULL;
+}
