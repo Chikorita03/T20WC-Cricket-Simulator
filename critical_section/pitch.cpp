@@ -5,6 +5,7 @@
 using namespace std;
 
 pthread_mutex_t pitch_mutex;
+pthread_mutex_t print_mutex;
 
 pthread_cond_t ball_delivered;
 pthread_cond_t stroke_finished;
@@ -14,9 +15,9 @@ bool stroke_done = true;
 int global_score = 0;
 pthread_mutex_t score_mutex;
 
-
 void init_pitch() {
     pthread_mutex_init(&pitch_mutex, NULL);
+    pthread_mutex_init(&print_mutex, NULL);
 
     pthread_cond_init(&ball_delivered, NULL);
     pthread_cond_init(&stroke_finished, NULL);
@@ -26,7 +27,8 @@ void init_pitch() {
 
 void destroy_pitch() {
     pthread_mutex_destroy(&pitch_mutex);
-
+    pthread_mutex_destroy(&print_mutex);
+    
     pthread_cond_destroy(&ball_delivered);
     pthread_cond_destroy(&stroke_finished);
 
@@ -41,7 +43,9 @@ void update_score(int runs) {
     new_score = global_score;
     pthread_mutex_unlock(&score_mutex);
 
+    pthread_mutex_lock(&print_mutex);
     cout << "[Score Updated] Total Score: " << new_score << endl;
+    pthread_mutex_unlock(&print_mutex);
 }
 
 int generate_runs() {

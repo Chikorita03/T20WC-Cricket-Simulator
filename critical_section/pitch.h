@@ -13,6 +13,7 @@ extern bool stroke_done;
 
 extern int global_score;
 extern pthread_mutex_t score_mutex;
+extern pthread_mutex_t print_mutex;
 
 void init_pitch();
 void destroy_pitch();

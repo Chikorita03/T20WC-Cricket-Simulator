@@ -12,7 +12,10 @@ void* bowler_thread(void* arg) {
 
         pthread_mutex_lock(&pitch_mutex); // entering pitch
 
+        pthread_mutex_lock(&print_mutex);
         cout << "[Bowler] Delivering ball" << endl;
+        pthread_mutex_unlock(&print_mutex);
+
         sleep(1);
 
         ball_ready = true;
@@ -24,7 +27,9 @@ void* bowler_thread(void* arg) {
             pthread_cond_wait(&stroke_finished, &pitch_mutex);
         }
 
+        pthread_mutex_lock(&print_mutex);
         cout << "[Pitch] Ball completed\n" << endl;
+        pthread_mutex_unlock(&print_mutex);
 
         pthread_mutex_unlock(&pitch_mutex); // exiting pitch
 
@@ -44,7 +49,10 @@ void* batsman_thread(void* arg) {
             pthread_cond_wait(&ball_delivered, &pitch_mutex);
         }
 
+        pthread_mutex_lock(&print_mutex);
         cout << "[Batsman " << id << "] Playing shot" << endl;
+        pthread_mutex_unlock(&print_mutex);
+
         sleep(1);
 
         int runs = generate_runs();
@@ -63,7 +71,9 @@ void* fielder_thread(void* arg) {
     int id = *(int*)arg;
 
     while (match_running) {
+        pthread_mutex_lock(&print_mutex);
         cout << "[Fielder " << id << "] Waiting" << endl;
+        pthread_mutex_unlock(&print_mutex);
         sleep(2);
     }
     return NULL;
@@ -71,7 +81,9 @@ void* fielder_thread(void* arg) {
 
 void* wicket_keeper_thread(void* arg) {
     while (match_running) {
+        pthread_mutex_lock(&print_mutex);
         cout << "[Wicket Keeper] Ready behind stumps" << endl;
+        pthread_mutex_unlock(&print_mutex);
         sleep(1);
     }
     return NULL;
