@@ -8,4 +8,5 @@ void init_pitch() {
 
 void destroy_pitch() {
     pthread_mutex_destroy(&pitch_mutex);
+    //test
 }
