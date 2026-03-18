@@ -47,6 +47,9 @@ void* batsman_thread(void* arg) {
         cout << "[Batsman " << id << "] Playing shot" << endl;
         sleep(1);
 
+        int runs = generate_runs();
+        update_score(runs);   
+        
         stroke_done = true;
         ball_ready = false;
 
