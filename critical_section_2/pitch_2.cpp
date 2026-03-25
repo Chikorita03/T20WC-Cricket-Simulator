@@ -1,8 +1,8 @@
+#include <unistd.h>
 #include "pitch_2.h"
 #include <iostream>
 #include <cstdlib>
 #include <ctime>
-#include <unistd.h>
 
 using namespace std;
 
@@ -241,3 +241,4 @@ BallEvent generate_event() {
 
     return ev;
 }
+

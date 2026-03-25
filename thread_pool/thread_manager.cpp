@@ -2,6 +2,7 @@
 #include "player_threads_2.h"
 #include "../critical_section_2/pitch_2.h"
 #include <iostream>
+#include "../scheduler/umpire.h"
 
 using namespace std;
 
@@ -36,6 +37,8 @@ void create_all_threads() {
 
     // Wicket keeper — like a fielder + handles stumping
     pthread_create(&wicket_keeper, NULL, wicket_keeper_thread, NULL);
+        
+    init_scheduler();
 }
 
 void join_all_threads() {
@@ -49,3 +52,4 @@ void join_all_threads() {
 
     pthread_join(wicket_keeper, NULL);
 }
+

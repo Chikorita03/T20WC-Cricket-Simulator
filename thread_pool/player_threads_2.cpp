@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <ctime>
 #include <pthread.h>
+#include "../scheduler/umpire.h"
 
 using namespace std;
 
@@ -47,7 +48,8 @@ void* bowler_thread(void* arg) {
         } else if (current_event.is_no_ball) {
             cout << "[Bowler] NO BALL - next ball is a free hit" << endl;
         } else {
-            cout << "[Bowler] Delivering ball " << (balls_bowled + 1) << endl;
+            cout << "[Bowler " << get_current_bowler()
+            << "] Delivering ball " << (balls_bowled + 1) << endl;
         }
         pthread_mutex_unlock(&print_mutex);
 
@@ -62,6 +64,8 @@ void* bowler_thread(void* arg) {
         if (match_running) {
             if (!current_event.is_wide && !current_event.is_no_ball) {
                 balls_bowled++;
+                // RR Scheduler update
+                on_ball_completed();
             }
             pthread_mutex_lock(&print_mutex);
             cout << "[Pitch] Ball completed | Balls: " << balls_bowled
