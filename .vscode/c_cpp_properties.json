@@ -1,0 +1,24 @@
+{
+  "version": 4,
+  "configurations": [
+    {
+      "name": "Mac",
+      "compilerPath": "/usr/bin/g++",
+      "intelliSenseMode": "macos-clang-arm64",
+      "cStandard": "c17",
+      "cppStandard": "c++17",
+      "compileCommands": "${workspaceFolder}/compile_commands.json",
+      "compilerArgs": [
+        "-pthread"
+      ],
+      "includePath": [
+        "${workspaceFolder}",
+        "${workspaceFolder}/thread_pool",
+        "${workspaceFolder}/critical_section_2"
+      ],
+      "defines": [
+        "_THREAD_SAFE"
+      ]
+    }
+  ]
+}

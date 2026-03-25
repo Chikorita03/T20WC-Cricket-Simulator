@@ -1,5 +1,6 @@
 #pragma once
 #include <pthread.h>
+#include <semaphore.h>
 
 enum WicketType {
     NONE,
@@ -33,6 +34,8 @@ extern pthread_mutex_t fielder_mutex;
 extern pthread_cond_t ball_delivered;
 extern pthread_cond_t stroke_finished;
 extern pthread_cond_t fielder_wake_cond;
+
+extern sem_t crease_sem;
 
 extern bool ball_ready;
 extern bool stroke_done;

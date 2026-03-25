@@ -12,10 +12,15 @@ static pthread_t batsmen[2];
 static pthread_t fielders[NUM_FIELDERS];
 static pthread_t wicket_keeper;
 
-static int batsman_ids[NUM_FIELDERS]  = {1, 2};
+static int batsman_ids[2] = {1, 2};
 static int fielder_ids[NUM_FIELDERS];
 
 void create_all_threads() {
+    pthread_mutex_lock(&print_mutex);
+    cout << "[ThreadManager] Creating " << (1 + 2 + NUM_FIELDERS + 1)
+         << " threads..." << endl;
+    pthread_mutex_unlock(&print_mutex);
+
     // Bowler — owns the pitch for one full ball lifecycle
     pthread_create(&bowler, NULL, bowler_thread, NULL);
 
@@ -31,9 +36,6 @@ void create_all_threads() {
 
     // Wicket keeper — like a fielder + handles stumping
     pthread_create(&wicket_keeper, NULL, wicket_keeper_thread, NULL);
-
-    cout << "[ThreadManager] All " << (1 + 2 + NUM_FIELDERS + 1)
-         << " threads created." << endl;
 }
 
 void join_all_threads() {

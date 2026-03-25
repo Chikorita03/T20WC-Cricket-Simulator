@@ -1,0 +1,27 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "build simulator",
+      "type": "shell",
+      "command": "/usr/bin/g++",
+      "args": [
+        "-std=c++17",
+        "-pthread",
+        "main.cpp",
+        "thread_pool/thread_manager.cpp",
+        "thread_pool/player_threads_2.cpp",
+        "critical_section_2/pitch_2.cpp",
+        "-o",
+        "simulator_run"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": [
+        "$gcc"
+      ]
+    }
+  ]
+}

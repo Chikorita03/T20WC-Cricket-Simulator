@@ -83,11 +83,14 @@ void* bowler_thread(void* arg) {
 
 void* batsman_thread(void* arg) {
     int id = *(int*)arg;
+    int my_id = id;   // dynamic id (IMPORTANT)
+
+    sem_wait(&crease_sem);   // batsman enters crease
 
     while (match_running) {
         pthread_mutex_lock(&pitch_mutex);
 
-        while ((!ball_ready || id != striker) && match_running) {
+        while ((!ball_ready || my_id != striker) && match_running) {
             pthread_cond_wait(&ball_delivered, &pitch_mutex);
         }
 
@@ -100,21 +103,21 @@ void* batsman_thread(void* arg) {
 
         pthread_mutex_lock(&print_mutex);
         if (current_event.is_wide) {
-            cout << "[Batsman " << id << "] Wide - cannot play" << endl;
+            cout << "[Batsman " << my_id << "] Wide - cannot play" << endl;
         } else if (current_event.wicket == BOWLED) {
-            cout << "[Batsman " << id << "] BOWLED!" << endl;
+            cout << "[Batsman " << my_id << "] BOWLED!" << endl;
         } else if (current_event.wicket == LBW) {
-            cout << "[Batsman " << id << "] LBW appeal!" << endl;
+            cout << "[Batsman " << my_id << "] LBW appeal!" << endl;
         } else if (current_event.is_boundary && current_event.base_runs == 6) {
-            cout << "[Batsman " << id << "] SIX!" << endl;
+            cout << "[Batsman " << my_id << "] SIX!" << endl;
         } else if (current_event.is_boundary && current_event.base_runs == 4) {
-            cout << "[Batsman " << id << "] FOUR!" << endl;
+            cout << "[Batsman " << my_id << "] FOUR!" << endl;
         } else if (current_event.is_leg_bye) {
-            cout << "[Batsman " << id << "] Leg bye" << endl;
+            cout << "[Batsman " << my_id << "] Leg bye" << endl;
         } else if (current_event.base_runs == 0) {
-            cout << "[Batsman " << id << "] Defended - dot ball" << endl;
+            cout << "[Batsman " << my_id << "] Defended - dot ball" << endl;
         } else {
-            cout << "[Batsman " << id << "] Playing for " << current_event.base_runs << " run(s)" << endl;
+            cout << "[Batsman " << my_id << "] Playing for " << current_event.base_runs << " run(s)" << endl;
         }
         pthread_mutex_unlock(&print_mutex);
 
@@ -141,10 +144,39 @@ void* batsman_thread(void* arg) {
         int total_runs   = current_event.base_runs + current_event.extra_runs;
         int running_runs = current_event.is_wide ? 0 : current_event.base_runs;
 
-        pthread_mutex_lock(&print_mutex);
-        if (current_event.wicket != NONE) {
+         if (current_event.wicket != NONE) {
+            sem_post(&crease_sem);
+            pthread_mutex_lock(&score_mutex);
+            wickets_fallen++;
+            pthread_mutex_unlock(&score_mutex);
+
+            static int next_batsman_id = 3;
+            int new_id = next_batsman_id++;
+
+            pthread_mutex_lock(&print_mutex);
             cout << "[Outcome] WICKET - " << wicket_name(current_event.wicket) << "!" << endl;
-        } else if (current_event.is_overthrow) {
+            cout << "[Innings] Batsman " << new_id << " comes to crease" << endl;
+            pthread_mutex_unlock(&print_mutex);
+
+            sem_wait(&crease_sem);   // ✅ new batsman occupies crease
+
+            my_id = new_id; 
+            int old_non_striker = non_striker;
+            striker = my_id;
+            non_striker = old_non_striker;
+
+            pthread_cond_broadcast(&ball_delivered);
+
+            pthread_mutex_lock(&pitch_mutex);
+            stroke_done = true;
+            pthread_cond_signal(&stroke_finished);
+            pthread_mutex_unlock(&pitch_mutex);
+
+            continue;
+        }
+
+        pthread_mutex_lock(&print_mutex);
+        if (current_event.is_overthrow) {
             cout << "[Outcome] OVERTHROW! " << current_event.base_runs << " run(s) total" << endl;
         } else if (current_event.is_boundary) {
             cout << "[Outcome] BOUNDARY - " << current_event.base_runs << " runs" << endl;
@@ -160,12 +192,6 @@ void* batsman_thread(void* arg) {
             cout << "[Outcome] " << total_runs << " run(s)" << endl;
         }
         pthread_mutex_unlock(&print_mutex);
-
-        if (current_event.wicket != NONE) {
-            pthread_mutex_lock(&score_mutex);
-            wickets_fallen++;
-            pthread_mutex_unlock(&score_mutex);
-        }
 
         if (total_runs > 0) {
             update_score(total_runs);

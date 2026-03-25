@@ -2,6 +2,7 @@
 #include <iostream>
 #include <cstdlib>
 #include <ctime>
+#include <unistd.h>
 
 using namespace std;
 
@@ -13,6 +14,8 @@ pthread_mutex_t fielder_mutex;
 pthread_cond_t ball_delivered;
 pthread_cond_t stroke_finished;
 pthread_cond_t fielder_wake_cond;
+
+sem_t crease_sem;
 
 bool ball_ready     = false;
 bool stroke_done    = true;
@@ -48,6 +51,9 @@ void init_pitch() {
     pthread_cond_init(&ball_delivered,    NULL);
     pthread_cond_init(&stroke_finished,   NULL);
     pthread_cond_init(&fielder_wake_cond, NULL);
+
+    sem_init(&crease_sem, 0, 2);   // ONLY 2 batsmen allowed
+
 }
 
 void destroy_pitch() {
@@ -59,6 +65,8 @@ void destroy_pitch() {
     pthread_cond_destroy(&ball_delivered);
     pthread_cond_destroy(&stroke_finished);
     pthread_cond_destroy(&fielder_wake_cond);
+
+    sem_destroy(&crease_sem);
 }
 
 void update_score(int runs) {
