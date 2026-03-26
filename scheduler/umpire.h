@@ -1,11 +1,13 @@
 #pragma once
 
-#define NUM_BOWLERS 4
+#define NUM_BOWLERS 5
 #define OVER_BALLS 6
 
 // Scheduler state
 extern int current_bowler;
 extern int balls_in_over;
+extern int death_bowler_1;
+extern int death_bowler_2;
 
 // ===== ROUND ROBIN SCHEDULING =====
 // Each bowler is treated as a process.

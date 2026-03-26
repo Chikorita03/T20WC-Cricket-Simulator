@@ -14,10 +14,8 @@ int main() {
 
     create_all_threads();
 
-    sleep(30);   // Run match for 30 seconds (~several overs)
-
-    while (!stroke_done) {
-        usleep(1000);
+    while (balls_bowled < 120) {
+        usleep(10000);  // small delay to avoid busy waiting
     }
 
     // Signal all threads to stop

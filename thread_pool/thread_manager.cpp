@@ -59,7 +59,10 @@ void create_all_threads() {
 
     // Wicket keeper — like a fielder + handles stumping
     pthread_create(&wicket_keeper, NULL, wicket_keeper_thread, NULL);
-        
+    
+    death_bowler_1 = 2;
+    death_bowler_2 = 3;
+    
     init_scheduler();
 }
 
