@@ -13,10 +13,32 @@ static pthread_t batsmen[2];
 static pthread_t fielders[NUM_FIELDERS];
 static pthread_t wicket_keeper;
 
-static int batsman_ids[2] = {11, 10};  // SJF: tailenders first (short jobs)
+// Match state currently uses the SJF-style order seeded in pitch_2.cpp.
+// Initial batsmen (FCFS starts with openers 1 and 2)
+static int batsman_ids[2] = {1, 2};
 static int fielder_ids[NUM_FIELDERS];
 
 void create_all_threads() {
+    // ===== Initialize FCFS Batting Order =====
+    // (1 and 2 are already playing)
+    while (!batting_order_fcfs.empty()) batting_order_fcfs.pop();
+    for (int i = 3; i <= 11; i++) {
+        batting_order_fcfs.push(i);
+    }
+
+    // ===== Initialize SJF Batting Order =====
+    while (!batting_order_sjf.empty()) batting_order_sjf.pop();
+    // (expected_balls, player_id)
+    batting_order_sjf.push({5, 11});
+    batting_order_sjf.push({7, 10});
+    batting_order_sjf.push({15, 9});
+    batting_order_sjf.push({20, 8});
+    batting_order_sjf.push({25, 7});
+    batting_order_sjf.push({30, 6});
+    batting_order_sjf.push({35, 5});
+    batting_order_sjf.push({40, 4});
+    batting_order_sjf.push({50, 3});
+
     pthread_mutex_lock(&print_mutex);
     cout << "[ThreadManager] Creating " << (1 + 2 + NUM_FIELDERS + 1)
          << " threads..." << endl;
@@ -52,4 +74,3 @@ void join_all_threads() {
 
     pthread_join(wicket_keeper, NULL);
 }
-

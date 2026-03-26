@@ -1,13 +1,13 @@
-#include <unistd.h>
 #include "pitch_2.h"
 #include <iostream>
 #include <cstdlib>
 #include <ctime>
+#include <unistd.h>
 #include <queue>
+#include <vector>
+#include <functional>
 
 using namespace std;
-
-queue<int> batting_order;
 
 pthread_mutex_t pitch_mutex;
 pthread_mutex_t print_mutex;
@@ -35,16 +35,42 @@ bool ball_active  = false;
 bool keeper_done  = false;
 
 int  global_score     = 0;
-int  striker          = 11; // for SJF
-int  non_striker      = 10; // for SJF
+int  striker          = 1;
+int  non_striker      = 2;
 bool next_is_free_hit = false;
 bool free_hit_pending = false;
 int  balls_bowled     = 0;
 int  wickets_fallen   = 0;
 bool match_running    = true;
 
+// ===== Scheduling Mode =====
+bool use_sjf = false;   // Set to true for SJF, false for FCFS
+
+// ===== Batting Orders =====
+queue<int> batting_order_fcfs;
+
+priority_queue< pair<int,int>, vector<pair<int,int>>, greater<pair<int,int>>> batting_order_sjf;
+
+// ===== Waiting Time Tracking =====
+int arrival_time[20];
+int start_time[20];
+int waiting_time[20];
+bool has_started[20];
+
+
 void init_pitch() {
     srand(time(NULL) ^ getpid());
+
+    // ===== Initialize waiting time arrays =====
+    for (int i = 0; i < 20; i++) {
+    arrival_time[i] = -1;
+    start_time[i] = -1;
+    waiting_time[i] = 0;
+    has_started[i] = false;
+    }
+
+    arrival_time[1] = 0;
+    arrival_time[2] = 0;
 
     pthread_mutex_init(&pitch_mutex,   NULL);
     pthread_mutex_init(&print_mutex,   NULL);
@@ -57,19 +83,6 @@ void init_pitch() {
 
     sem_init(&crease_sem, 0, 2);   // ONLY 2 batsmen allowed
 
-    // SJF: tailenders first (short jobs)
-    batting_order.push(9);
-    batting_order.push(8);
-    batting_order.push(7);
-    batting_order.push(6);
-    batting_order.push(5);
-
-    // then better batsmen
-    batting_order.push(4);
-    batting_order.push(3);
-    batting_order.push(2);
-    batting_order.push(1);
-    
 }
 
 void destroy_pitch() {
@@ -231,13 +244,7 @@ BallEvent generate_event() {
 
     if (!ev.is_boundary) {
         int w = rand() % 100;
-        int wicket_chance = 18;
-
-        // Tailenders (short jobs → SJF) get out faster
-        if (striker >= 7) {
-            wicket_chance = 35;
-        }
-        if (w < wicket_chance) {
+        if (w < 18) {
             int wt = rand() % 5;
             switch (wt) {
                 case 0: ev.wicket = BOWLED;  ev.ball_in_air = false; break;
@@ -263,4 +270,3 @@ BallEvent generate_event() {
 
     return ev;
 }
-

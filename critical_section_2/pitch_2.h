@@ -2,6 +2,8 @@
 #include <pthread.h>
 #include <semaphore.h>
 #include <queue>
+#include <vector>
+#include <functional>
 
 enum WicketType {
     NONE,
@@ -26,8 +28,6 @@ struct BallEvent {
 
     WicketType wicket;
 };
-
-extern std::queue<int> batting_order;
 
 extern pthread_mutex_t pitch_mutex;
 extern pthread_mutex_t print_mutex;
@@ -63,8 +63,27 @@ extern int  balls_bowled;
 extern int  wickets_fallen;
 extern bool match_running;
 
-void      init_pitch();
-void      destroy_pitch();
-void      update_score(int runs);
-void      stop_match();
+// ===== SCHEDULING MODE =====
+extern bool use_sjf;
+
+// ===== FCFS Queue =====
+extern std::queue<int> batting_order_fcfs;
+
+// ===== SJF Priority Queue =====
+extern std::priority_queue<
+    std::pair<int,int>,
+    std::vector<std::pair<int,int>>,
+    std::greater<std::pair<int,int>>
+> batting_order_sjf;
+
+// ===== WAITING TIME ANALYSIS =====
+extern int arrival_time[20];
+extern int start_time[20];
+extern int waiting_time[20];
+extern bool has_started[20];
+
+void init_pitch();
+void destroy_pitch();
+void update_score(int runs);
+void stop_match();
 BallEvent generate_event();

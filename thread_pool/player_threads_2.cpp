@@ -63,8 +63,22 @@ void* bowler_thread(void* arg) {
 
         if (match_running) {
             if (!current_event.is_wide && !current_event.is_no_ball) {
+
+                // ===== RR SCHEDULING: Update Bowler PCB =====
+                int b = get_current_bowler();
+
+                bowlers[b].balls_bowled++;
+
+                int runs = current_event.base_runs + current_event.extra_runs;
+                bowlers[b].runs_conceded += runs;
+
+                if (current_event.wicket != NONE) {
+                    bowlers[b].wickets++;
+                }
+
                 balls_bowled++;
-                // RR Scheduler update
+
+                // ===== RR Scheduler: Context switch check =====
                 on_ball_completed();
             }
             pthread_mutex_lock(&print_mutex);
@@ -125,6 +139,13 @@ void* batsman_thread(void* arg) {
         }
         pthread_mutex_unlock(&print_mutex);
 
+        // ===== WAITING TIME: First execution =====
+        if (!has_started[my_id]) {
+            start_time[my_id] = balls_bowled;
+            waiting_time[my_id] = start_time[my_id] - arrival_time[my_id];
+            has_started[my_id] = true;
+        }
+
         pthread_mutex_unlock(&pitch_mutex);
 
         if (current_event.ball_in_air) {
@@ -156,16 +177,38 @@ void* batsman_thread(void* arg) {
 
             int new_id;
 
-            if (!batting_order.empty()) {
-                new_id = batting_order.front();
-                batting_order.pop();
+            // ===== SCHEDULER: FCFS vs SJF =====
+            // ===== SCHEDULER: FCFS vs SJF =====
+        if (use_sjf) {
+            if (!batting_order_sjf.empty()) {
+                new_id = batting_order_sjf.top().second;
+                batting_order_sjf.pop();
             } else {
                 new_id = 3;
             }
 
             pthread_mutex_lock(&print_mutex);
+            cout << "[SJF] Batsman " << new_id << " comes in" << endl;
+            pthread_mutex_unlock(&print_mutex);
+
+        } else {
+            if (!batting_order_fcfs.empty()) {
+                new_id = batting_order_fcfs.front();
+                batting_order_fcfs.pop();
+            } else {
+            new_id = 3;
+            }
+
+            pthread_mutex_lock(&print_mutex);
+            cout << "[FCFS] Batsman " << new_id << " comes in" << endl;
+            pthread_mutex_unlock(&print_mutex);
+        }
+
+            // ===== WAITING TIME: Arrival =====
+            arrival_time[new_id] = balls_bowled;
+
+            pthread_mutex_lock(&print_mutex);
             cout << "[Outcome] WICKET - " << wicket_name(current_event.wicket) << "!" << endl;
-            cout << "[SJF] Batsman " << new_id << " (short job priority) comes in" << endl;
             pthread_mutex_unlock(&print_mutex);
 
             sem_wait(&crease_sem);   // ✅ new batsman occupies crease
@@ -176,6 +219,13 @@ void* batsman_thread(void* arg) {
             non_striker = old_non_striker;
 
             pthread_cond_broadcast(&ball_delivered);
+
+            if (current_event.ball_in_air) {
+                pthread_mutex_lock(&fielder_mutex);
+                ball_active = false;
+                pthread_cond_broadcast(&fielder_wake_cond);
+                pthread_mutex_unlock(&fielder_mutex);
+            }
 
             pthread_mutex_lock(&pitch_mutex);
             stroke_done = true;
