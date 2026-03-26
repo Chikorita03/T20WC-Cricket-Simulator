@@ -13,7 +13,7 @@ static pthread_t batsmen[2];
 static pthread_t fielders[NUM_FIELDERS];
 static pthread_t wicket_keeper;
 
-static int batsman_ids[2] = {1, 2};
+static int batsman_ids[2] = {11, 10};  // SJF: tailenders first (short jobs)
 static int fielder_ids[NUM_FIELDERS];
 
 void create_all_threads() {

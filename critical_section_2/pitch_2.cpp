@@ -3,8 +3,11 @@
 #include <iostream>
 #include <cstdlib>
 #include <ctime>
+#include <queue>
 
 using namespace std;
+
+queue<int> batting_order;
 
 pthread_mutex_t pitch_mutex;
 pthread_mutex_t print_mutex;
@@ -32,8 +35,8 @@ bool ball_active  = false;
 bool keeper_done  = false;
 
 int  global_score     = 0;
-int  striker          = 1;
-int  non_striker      = 2;
+int  striker          = 11; // for SJF
+int  non_striker      = 10; // for SJF
 bool next_is_free_hit = false;
 bool free_hit_pending = false;
 int  balls_bowled     = 0;
@@ -54,6 +57,19 @@ void init_pitch() {
 
     sem_init(&crease_sem, 0, 2);   // ONLY 2 batsmen allowed
 
+    // SJF: tailenders first (short jobs)
+    batting_order.push(9);
+    batting_order.push(8);
+    batting_order.push(7);
+    batting_order.push(6);
+    batting_order.push(5);
+
+    // then better batsmen
+    batting_order.push(4);
+    batting_order.push(3);
+    batting_order.push(2);
+    batting_order.push(1);
+    
 }
 
 void destroy_pitch() {
@@ -215,7 +231,13 @@ BallEvent generate_event() {
 
     if (!ev.is_boundary) {
         int w = rand() % 100;
-        if (w < 18) {
+        int wicket_chance = 18;
+
+        // Tailenders (short jobs → SJF) get out faster
+        if (striker >= 7) {
+            wicket_chance = 35;
+        }
+        if (w < wicket_chance) {
             int wt = rand() % 5;
             switch (wt) {
                 case 0: ev.wicket = BOWLED;  ev.ball_in_air = false; break;

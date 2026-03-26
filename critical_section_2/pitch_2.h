@@ -1,6 +1,7 @@
 #pragma once
 #include <pthread.h>
 #include <semaphore.h>
+#include <queue>
 
 enum WicketType {
     NONE,
@@ -25,6 +26,8 @@ struct BallEvent {
 
     WicketType wicket;
 };
+
+extern std::queue<int> batting_order;
 
 extern pthread_mutex_t pitch_mutex;
 extern pthread_mutex_t print_mutex;

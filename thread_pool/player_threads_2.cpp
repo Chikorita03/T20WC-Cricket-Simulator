@@ -148,18 +148,24 @@ void* batsman_thread(void* arg) {
         int total_runs   = current_event.base_runs + current_event.extra_runs;
         int running_runs = current_event.is_wide ? 0 : current_event.base_runs;
 
-         if (current_event.wicket != NONE) {
+        if (current_event.wicket != NONE) {
             sem_post(&crease_sem);
             pthread_mutex_lock(&score_mutex);
             wickets_fallen++;
             pthread_mutex_unlock(&score_mutex);
 
-            static int next_batsman_id = 3;
-            int new_id = next_batsman_id++;
+            int new_id;
+
+            if (!batting_order.empty()) {
+                new_id = batting_order.front();
+                batting_order.pop();
+            } else {
+                new_id = 3;
+            }
 
             pthread_mutex_lock(&print_mutex);
             cout << "[Outcome] WICKET - " << wicket_name(current_event.wicket) << "!" << endl;
-            cout << "[Innings] Batsman " << new_id << " comes to crease" << endl;
+            cout << "[SJF] Batsman " << new_id << " (short job priority) comes in" << endl;
             pthread_mutex_unlock(&print_mutex);
 
             sem_wait(&crease_sem);   // ✅ new batsman occupies crease
