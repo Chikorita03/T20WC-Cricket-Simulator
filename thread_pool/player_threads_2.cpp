@@ -745,7 +745,7 @@ void* fielder_thread(void* arg) {
     return NULL;
 }
 
-// =============================================================
+// ============================================================
 // wicket_keeper_thread()
 //   Handles STUMPED dismissals exclusively.
 //
@@ -753,7 +753,7 @@ void* fielder_thread(void* arg) {
 //   interrupt vector (STUMPED).  It only acts if the ball has
 //   not already been claimed (ball_stopped == false), preventing
 //   a race with fielders.
-// =============================================================
+// ============================================================
 void* wicket_keeper_thread(void* arg) {
     while (match_running) {
         pthread_mutex_lock(&fielder_mutex);
