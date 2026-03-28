@@ -1,4 +1,5 @@
 #include "thread_manager.h"
+#include "log.h"
 #include "player_threads_2.h"
 #include "../critical_section_2/pitch_2.h"
 #include <iostream>
@@ -39,10 +40,10 @@ void create_all_threads() {
     batting_order_sjf.push({40, 4});
     batting_order_sjf.push({50, 3});
 
-    pthread_mutex_lock(&print_mutex);
-    cout << "[ThreadManager] Creating " << (1 + 2 + NUM_FIELDERS + 1)
-         << " threads..." << endl;
-    pthread_mutex_unlock(&print_mutex);
+    Logger::log(
+        "[ThreadManager] Creating " + to_string(1 + 2 + NUM_FIELDERS + 1) + " threads...",
+        "SYSTEM"
+    );
 
     // Bowler — owns the pitch for one full ball lifecycle
     pthread_create(&bowler, NULL, bowler_thread, NULL);

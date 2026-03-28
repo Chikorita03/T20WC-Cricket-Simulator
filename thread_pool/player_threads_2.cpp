@@ -1,4 +1,6 @@
 #include "player_threads_2.h"
+#include "log.h"
+#include <sstream>
 #include "../critical_section_2/pitch_2.h"
 #include <iostream>
 #include <unistd.h>
@@ -36,18 +38,14 @@ const char* wicket_name(int wt) {
 //           false → NOT OUT, wicket cancelled
 // =============================================================
 bool decide_lbw() {
-    pthread_mutex_lock(&print_mutex);
-    cout << "[Umpire] Considering LBW appeal..." << endl;
-    pthread_mutex_unlock(&print_mutex);
+    Logger::log("[Umpire] Considering LBW appeal...", "UMPIRE");
 
     bool out = (rand() % 100) < 60;   // ~60% chance OUT
 
-    pthread_mutex_lock(&print_mutex);
-    if (out)
-        cout << "[Umpire] LBW - OUT! Finger raised." << endl;
+    if(out)
+        Logger::log("[Umpire] LBW - OUT!", "UMPIRE");
     else
-        cout << "[Umpire] LBW - NOT OUT! Appeal rejected." << endl;
-    pthread_mutex_unlock(&print_mutex);
+        Logger::log("[Umpire] LBW - NOT OUT!", "UMPIRE");
 
     return out;
 }
@@ -67,72 +65,103 @@ void* bowler_thread(void* arg) {
             break;
         }
 
-        // ---- Generate raw ball event ----
-        current_event = generate_event();
+        // ===== PRINT HEADER ONCE PER BALL =====
+        int over = balls_bowled / 6;
+        int ball = balls_bowled % 6 + 1;
 
-        // ---- Enforce wicket rules (NO BALL / FREE HIT guard) ----
-        validate_wicket(current_event);
+        Logger::section(
+            "Over " + to_string(over+1) + "." + to_string(ball) + " | Ball " + to_string(balls_bowled+1)
+        );
 
-        pthread_mutex_lock(&fielder_mutex);
-        ball_active  = false;
-        ball_stopped = !current_event.ball_in_air;
-        keeper_done  = !current_event.ball_in_air;
-        ball_owner   = -1;
-        pthread_mutex_unlock(&fielder_mutex);
+        int retry_count = 0;
 
-        pthread_mutex_lock(&print_mutex);
-        if (current_event.is_free_hit) {
-            cout << "[Bowler] FREE HIT - Ball " << (balls_bowled + 1) << endl;
-        } else if (current_event.is_wide) {
-            cout << "[Bowler] Wide delivery" << endl;
-        } else if (current_event.is_no_ball) {
-            cout << "[Bowler] NO BALL - next ball is a free hit" << endl;
-        } else {
-            cout << "[Bowler " << get_current_bowler()
-            << "] Delivering ball " << (balls_bowled + 1) << endl;
-        }
-        pthread_mutex_unlock(&print_mutex);
+        while(true){
+            if(!match_running){
+                break;
+            }
+            retry_count++;
 
-        ball_ready  = true;
-        stroke_done = false;
-        pthread_cond_broadcast(&ball_delivered);
+            // ---- Generate raw ball event ----
+            current_event = generate_event();
 
-        while (!stroke_done && match_running) {
-            pthread_cond_wait(&stroke_finished, &pitch_mutex);
-        }
+            // ---- Enforce wicket rules (NO BALL / FREE HIT guard) ----
+            validate_wicket(current_event);
 
-        if (match_running) {
-            if (!current_event.is_wide && !current_event.is_no_ball) {
+            // ===== SAFETY: prevent infinite loop =====
+            if (retry_count > 8) {
+                current_event.is_wide = false;
+                current_event.is_no_ball = false;
+            }
 
-                // ===== RR SCHEDULING: Update Bowler PCB =====
-                int b = get_current_bowler();
+            pthread_mutex_lock(&fielder_mutex);
+            ball_active  = false;
+            ball_stopped = !current_event.ball_in_air;
+            keeper_done  = !current_event.ball_in_air;
+            ball_owner   = -1;
+            pthread_mutex_unlock(&fielder_mutex);
 
-                bowlers[b].balls_bowled++;
+            string msg;
 
+            if(current_event.is_free_hit)
+                msg="[Bowler] FREE HIT - Ball "+to_string(balls_bowled+1);
+            else if(current_event.is_wide)
+                msg="[Bowler] Wide delivery";
+            else if(current_event.is_no_ball)
+                msg="[Bowler] NO BALL - next ball is a free hit";
+            else
+                msg="[Bowler "+to_string(get_current_bowler())+
+                    "] Delivering ball "+to_string(balls_bowled+1);
+
+            Logger::log(msg,"BOWLER");
+
+            ball_ready  = true;
+            stroke_done = false;
+            pthread_cond_broadcast(&ball_delivered);
+
+            while (!stroke_done && match_running) {
+                pthread_cond_wait(&stroke_finished, &pitch_mutex);
+            }
+
+            if(!match_running){
+                break;
+            }
+
+            if (match_running) {
                 int runs = current_event.base_runs + current_event.extra_runs;
-                bowlers[b].runs_conceded += runs;
 
-                if (current_event.wicket != NONE) {
-                    bowlers[b].wickets++;
+                if (!current_event.is_wide && !current_event.is_no_ball) {
+
+                    // ===== RR SCHEDULING: Update Bowler PCB =====
+                    int b = get_current_bowler();
+
+                    bowlers[b].balls_bowled++;
+                    bowlers[b].runs_conceded += runs;
+
+                    if (current_event.wicket != NONE) {
+                        bowlers[b].wickets++;
+                    }
+
+                    balls_bowled++; 
+
+                }
+                
+                Logger::log(
+                    "[Pitch] Ball completed | Balls: "+to_string(balls_bowled)+
+                    " | Wickets: "+to_string(wickets_fallen),
+                    "UMPIRE"
+                );
+
+                if (!current_event.is_wide && !current_event.is_no_ball){
+                    on_ball_completed();
+                    Logger::log(" ", "");
+                    break;   // exit retry loop on valid ball
                 }
 
-                balls_bowled++;
-
-                // ===== RR Scheduler: Context switch check =====
-                on_ball_completed();
+                Logger::log(" ", "");
             }
-            pthread_mutex_lock(&print_mutex);
-            cout << "[Pitch] Ball completed | Balls: " << balls_bowled
-                 << " | Wickets: " << wickets_fallen << "\n" << endl;
-            pthread_mutex_unlock(&print_mutex);
         }
 
         pthread_mutex_unlock(&pitch_mutex);
-
-        if (match_running && (wickets_fallen >= 10 || balls_bowled >= 120)) {
-            match_running = false;
-            stop_match();
-        }
 
         if (match_running) sleep(1);
     }
@@ -169,29 +198,30 @@ void* batsman_thread(void* arg) {
 
         ball_ready = false;
 
-        pthread_mutex_lock(&print_mutex);
-        if (current_event.is_wide) {
-            cout << "[Batsman " << my_id << "] Wide - cannot play" << endl;
-        } else if (current_event.wicket == BOWLED) {
-            cout << "[Batsman " << my_id << "] BOWLED!" << endl;
-        } else if (current_event.wicket == LBW) {
-            cout << "[Batsman " << my_id << "] LBW appeal! Struck on the pads." << endl;
-        } else if (current_event.is_boundary && current_event.base_runs == 6) {
-            cout << "[Batsman " << my_id << "] SIX!" << endl;
-        } else if (current_event.is_boundary && current_event.base_runs == 4) {
-            cout << "[Batsman " << my_id << "] FOUR!" << endl;
-        } else if (current_event.is_leg_bye) {
-            cout << "[Batsman " << my_id << "] Leg bye" << endl;
-        } else if (current_event.base_runs == 0) {
-            cout << "[Batsman " << my_id << "] Defended - dot ball" << endl;
-        } else {
-            cout << "[Batsman " << my_id << "] Playing for " << current_event.base_runs << " run(s)" << endl;
-        }
-        pthread_mutex_unlock(&print_mutex);
+        string msg1;
+
+        if(current_event.is_wide)
+            msg1="[Batsman "+to_string(my_id)+"] Wide - cannot play";
+        else if(current_event.wicket==BOWLED)
+            msg1="[Batsman "+to_string(my_id)+"] BOWLED!";
+        else if(current_event.wicket==LBW)
+            msg1="[Batsman "+to_string(my_id)+"] LBW appeal!";
+        else if(current_event.is_boundary && current_event.base_runs==6)
+            msg1="[Batsman "+to_string(my_id)+"] SIX!";
+        else if(current_event.is_boundary && current_event.base_runs==4)
+            msg1="[Batsman "+to_string(my_id)+"] FOUR!";
+        else if(current_event.is_leg_bye)
+            msg1="[Batsman "+to_string(my_id)+"] Leg bye";
+        else if(current_event.base_runs==0)
+            msg1="[Batsman "+to_string(my_id)+"] Dot ball";
+        else
+            msg1="[Batsman "+to_string(my_id)+"] Playing for "+to_string(current_event.base_runs);
+
+        Logger::log(msg1,"BATSMAN");
 
         // ===== LBW: deferred umpire decision =====
         // Must happen before we release pitch_mutex so that
-        // wicket state is resolved before fielder/keeper wake.
+        //  state is resolved before fielder/keeper wake.
         if (current_event.wicket == LBW) {
             bool lbw_out = decide_lbw();
             if (!lbw_out) {
@@ -246,9 +276,28 @@ void* batsman_thread(void* arg) {
             sem_post(&crease_sem);
             pthread_mutex_lock(&score_mutex);
             wickets_fallen++;
+            pthread_mutex_unlock(&score_mutex);
             // ===== STOP MATCH IF ALL OUT =====
-            if (wickets_fallen >= 10) {
+            if (wickets_fallen == 10){
+                update_score(total_runs);
+
+                Logger::log(
+                    "[Pitch] Ball completed | Balls: "+to_string(balls_bowled+1)+
+                    " | Wickets: "+to_string(wickets_fallen),
+                    "UMPIRE"
+                );
+
+                Logger::log("[MATCH] All out! Innings ends.", "SYSTEM");
+
                 match_running = false;
+                stop_match();
+
+                pthread_mutex_lock(&pitch_mutex);
+                stroke_done = true;
+                pthread_cond_signal(&stroke_finished);
+                pthread_mutex_unlock(&pitch_mutex);
+
+                break;
             }
             pthread_mutex_unlock(&score_mutex);
             // Wake all threads safely
@@ -259,9 +308,7 @@ void* batsman_thread(void* arg) {
             // ===== IF MATCH ENDED → DO NOT CREATE NEW BATSMAN =====
             if (!match_running) {
 
-                pthread_mutex_lock(&print_mutex);
-                cout << "[MATCH] All out! Innings ends." << endl;
-                pthread_mutex_unlock(&print_mutex);
+                Logger::log("[MATCH] All out! Innings ends.", "SYSTEM");
 
                 stop_match();
 
@@ -287,9 +334,7 @@ void* batsman_thread(void* arg) {
                 new_id = 3;
             }
 
-            pthread_mutex_lock(&print_mutex);
-            cout << "[SJF] Batsman " << new_id << " comes in" << endl;
-            pthread_mutex_unlock(&print_mutex);
+            Logger::log("[SJF] Batsman "+to_string(new_id)+" comes in","SCHED");
 
         } else {
             if (!batting_order_fcfs.empty()) {
@@ -299,17 +344,18 @@ void* batsman_thread(void* arg) {
             new_id = 3;
             }
 
-            pthread_mutex_lock(&print_mutex);
-            cout << "[FCFS] Batsman " << new_id << " comes in" << endl;
-            pthread_mutex_unlock(&print_mutex);
+            Logger::log("[FCFS] Batsman "+to_string(new_id)+" comes in","SCHED");
         }
 
             // ===== WAITING TIME: Arrival =====
             arrival_time[new_id] = balls_bowled;
 
-            pthread_mutex_lock(&print_mutex);
-            cout << "[Outcome] WICKET - " << wicket_name(current_event.wicket) << "!" << endl;
-            pthread_mutex_unlock(&print_mutex);
+            Logger::log(
+                "[Outcome] WICKET - "+string(wicket_name(current_event.wicket)),
+                "WICKET"
+            );
+            
+            update_score(total_runs);
 
             sem_wait(&crease_sem);   // new batsman occupies crease
 
@@ -335,27 +381,26 @@ void* batsman_thread(void* arg) {
             continue;
         }
 
-        pthread_mutex_lock(&print_mutex);
-        if (current_event.is_overthrow) {
-            cout << "[Outcome] OVERTHROW! " << current_event.base_runs << " run(s) total" << endl;
-        } else if (current_event.is_boundary) {
-            cout << "[Outcome] BOUNDARY - " << current_event.base_runs << " runs" << endl;
-        } else if (current_event.is_wide) {
-            cout << "[Outcome] Wide - " << current_event.extra_runs << " extra(s)" << endl;
-        } else if (current_event.is_no_ball) {
-            cout << "[Outcome] No Ball - 1 extra" << endl;
-        } else if (current_event.is_leg_bye) {
-            cout << "[Outcome] Leg Bye - " << current_event.base_runs << " run(s)" << endl;
-        } else if (total_runs == 0) {
-            cout << "[Outcome] Dot ball" << endl;
-        } else {
-            cout << "[Outcome] " << total_runs << " run(s)" << endl;
-        }
-        pthread_mutex_unlock(&print_mutex);
+        string msg2;
 
-        if (total_runs > 0) {
-            update_score(total_runs);
-        }
+        if(current_event.is_overthrow)
+            msg2="[Outcome] OVERTHROW!";
+        else if(current_event.is_boundary)
+            msg2="[Outcome] BOUNDARY - "+to_string(current_event.base_runs);
+        else if(current_event.is_wide)
+            msg2="[Outcome] Wide";
+        else if(current_event.is_no_ball)
+            msg2="[Outcome] No Ball";
+        else if(current_event.is_leg_bye)
+            msg2="[Outcome] Leg Bye";
+        else if(total_runs==0)
+            msg2="[Outcome] Dot ball";
+        else
+            msg2="[Outcome] "+to_string(total_runs)+" run(s)";
+
+        Logger::log(msg2,"OUTCOME");
+
+        update_score(total_runs);
 
         if (current_event.wicket == NONE && running_runs % 2 == 1) {
             pthread_mutex_lock(&score_mutex);
@@ -417,16 +462,13 @@ void* fielder_thread(void* arg) {
             ball_owner = id;
             int dist = 5 + (int)(rand_r(&rseed) % 55);
 
-            pthread_mutex_lock(&print_mutex);
-            if (current_event.wicket == CAUGHT) {
-                // Fielder caught it — wicket was set by generator;
-                // we confirm possession so batsman_thread can proceed.
-                cout << "[Fielder " << id << "] CAUGHT! Ball safely held." << endl;
-            } else {
-                cout << "[Fielder " << id << "] Stopped ball at " << dist << "m" << endl;
-            }
-            pthread_mutex_unlock(&print_mutex);
-
+            if(current_event.wicket==CAUGHT)
+                Logger::log("[Fielder "+to_string(id)+"] CAUGHT! Ball safely held.","FIELDER");
+            else
+                Logger::log(
+                    "[Fielder "+to_string(id)+"] Stopped ball at "+to_string(dist)+"m",
+                    "FIELDER"
+                );
             ball_stopped = true;
             pthread_cond_broadcast(&fielder_wake_cond);
         }
@@ -468,9 +510,7 @@ void* wicket_keeper_thread(void* arg) {
             // (guards against a fielder accidentally claiming the ball
             //  when wicket == STUMPED, which fielder_thread now prevents)
             if (!ball_stopped) {
-                pthread_mutex_lock(&print_mutex);
-                cout << "[Keeper] STUMPED! Bails off — batsman out of crease." << endl;
-                pthread_mutex_unlock(&print_mutex);
+                Logger::log("[Keeper] STUMPED!","KEEPER");
 
                 ball_owner   = 0;   // 0 = keeper owns the ball
                 ball_stopped = true;
@@ -479,9 +519,7 @@ void* wicket_keeper_thread(void* arg) {
         } else {
             // Non-stumped ball: keeper receives safely if no fielder got it
             if (ball_owner == -1 && !ball_stopped) {
-                pthread_mutex_lock(&print_mutex);
-                cout << "[Keeper] Ball safely in gloves" << endl;
-                pthread_mutex_unlock(&print_mutex);
+                Logger::log("[Keeper] Ball safely in gloves","KEEPER");
             }
         }
 

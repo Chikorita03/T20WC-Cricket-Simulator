@@ -1,4 +1,5 @@
 #include "pitch_2.h"
+#include "log.h"
 #include <iostream>
 #include <cstdlib>
 #include <ctime>
@@ -106,9 +107,11 @@ void update_score(int runs) {
     new_score = global_score;
     pthread_mutex_unlock(&score_mutex);
 
-    pthread_mutex_lock(&print_mutex);
-    cout << "  [Score] +" << runs << " run(s)  Total: " << new_score << endl;
-    pthread_mutex_unlock(&print_mutex);
+    Logger::log(
+        "[Score] +" + to_string(runs) +
+        " run(s)  Total: " + to_string(new_score),
+        "SCORE"
+    );
 }
 
 void stop_match() {

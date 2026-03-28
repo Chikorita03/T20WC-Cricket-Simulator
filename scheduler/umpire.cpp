@@ -1,10 +1,10 @@
 #include "umpire.h"
 #include <iostream>
+#include "log.h"
+#include <sstream>
 #include <pthread.h>
 
 using namespace std;
-
-extern pthread_mutex_t print_mutex;
 
 int current_bowler = 0;
 int balls_in_over  = 0;
@@ -67,26 +67,29 @@ void on_ball_completed() {
 
             toggle = 1 - toggle;
 
-            pthread_mutex_lock(&print_mutex);
-            cout << "\n[PRIORITY] Death Over! Bowler " << current_bowler << " is bowling" << endl;
-            pthread_mutex_unlock(&print_mutex);
-        }
+            Logger::log(
+                "[PRIORITY] Death Over! Bowler "+to_string(current_bowler+1)+" is bowling",
+                "UMPIRE"
+            );
+                    }
         return;
     }
     
     // ===== NORMAL RR =====
     if (balls_in_over >= OVER_BALLS) {
 
-        pthread_mutex_lock(&print_mutex);
-        cout << "\n[UMPIRE] Over completed." << endl;
+        int over_number = balls_bowled / 6;
+        Logger::section("Over " + to_string(over_number) +" Completed");
 
-        cout << "[Context Switch] Saving Bowler " << current_bowler << " state:" << endl;
-        cout << "   Balls: " << bowlers[current_bowler].balls_bowled
-             << " | Runs: " << bowlers[current_bowler].runs_conceded
-             << " | Wickets: " << bowlers[current_bowler].wickets
-             << endl;
+        {
+            string msg =
+                "[UMPIRE] Over completed. Saving Bowler " + to_string(current_bowler+1) +
+                " | Balls: " + to_string(bowlers[current_bowler].balls_bowled) +
+                " | Runs: " + to_string(bowlers[current_bowler].runs_conceded) +
+                " | Wickets: " + to_string(bowlers[current_bowler].wickets);
 
-        pthread_mutex_unlock(&print_mutex);
+            Logger::log(msg, "UMPIRE");
+        }
 
         balls_in_over = 0;
         int next = (current_bowler + 1) % NUM_BOWLERS;
@@ -112,14 +115,14 @@ void on_ball_completed() {
          }
         }
 
-        pthread_mutex_lock(&print_mutex);
-        cout << "[UMPIRE] New bowler: Bowler " << current_bowler << endl;
-        cout << "[Context Switch] Loading Bowler " << current_bowler << " state:" << endl;
-        cout << "   Balls: " << bowlers[current_bowler].balls_bowled
-             << " | Runs: " << bowlers[current_bowler].runs_conceded
-             << " | Wickets: " << bowlers[current_bowler].wickets
-             << endl;
+        {
+            string msg =
+                "[UMPIRE] New bowler: " + to_string(current_bowler+1) +
+                " | Balls: " + to_string(bowlers[current_bowler].balls_bowled) +
+                " | Runs: " + to_string(bowlers[current_bowler].runs_conceded) +
+                " | Wickets: " + to_string(bowlers[current_bowler].wickets);
 
-        pthread_mutex_unlock(&print_mutex);
+            Logger::log(msg, "UMPIRE");
+        }
     }
 }
