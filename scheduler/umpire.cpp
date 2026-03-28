@@ -75,4 +75,55 @@ void on_ball_completed() {
         return;
     }
     
+    // ===== NORMAL RR =====
+    if (balls_in_over >= OVER_BALLS) {
+
+        int over_number = balls_bowled / 6;
+        Logger::section("Over " + to_string(over_number) +" Completed");
+
+        {
+            string msg =
+                "[UMPIRE] Over completed. Saving Bowler " + to_string(current_bowler+1) +
+                " | Balls: " + to_string(bowlers[current_bowler].balls_bowled) +
+                " | Runs: " + to_string(bowlers[current_bowler].runs_conceded) +
+                " | Wickets: " + to_string(bowlers[current_bowler].wickets);
+
+            Logger::log(msg, "UMPIRE");
+        }
+
+        balls_in_over = 0;
+        int next = (current_bowler + 1) % NUM_BOWLERS;
+
+        for (int i = 0; i < NUM_BOWLERS; i++) {
+            int candidate = (next + i) % NUM_BOWLERS;
+            // Max 4 overs for ALL bowlers
+            if (bowlers[candidate].balls_bowled >= 24)
+            continue;
+
+            // Death bowlers: only 2 overs BEFORE death overs
+            if ((candidate == death_bowler_1 || candidate == death_bowler_2) && balls_bowled < 96 && bowlers[candidate].balls_bowled >= 12) continue;
+            current_bowler = candidate;
+            break;
+        }
+        // SAFETY FALLBACK
+        if (bowlers[current_bowler].balls_bowled >= 24) {
+            for (int i = 0; i < NUM_BOWLERS; i++) {
+                if (bowlers[i].balls_bowled < 24) {
+                    current_bowler = i;
+                    break;
+                }
+         }
+        }
+
+        {
+            string msg =
+                "[UMPIRE] New bowler: " + to_string(current_bowler+1) +
+                " | Balls: " + to_string(bowlers[current_bowler].balls_bowled) +
+                " | Runs: " + to_string(bowlers[current_bowler].runs_conceded) +
+                " | Wickets: " + to_string(bowlers[current_bowler].wickets);
+
+            Logger::log(msg, "UMPIRE");
+        }
+    }
+}
     
