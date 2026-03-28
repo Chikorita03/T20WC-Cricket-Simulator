@@ -1,6 +1,7 @@
 #include "player_threads_2.h"
 #include "log.h"
 #include <sstream>
+#include <iomanip>
 #include "../critical_section_2/pitch_2.h"
 #include <iostream>
 #include <unistd.h>
@@ -14,6 +15,82 @@ using namespace std;
 static BallEvent current_event;
 static bool batsman3_used = false;
 static int next_fixed = 9;
+
+static int delivery_extras_for_event(const BallEvent& ev) {
+    int wide_runs = 0;
+    int no_ball_runs = 0;
+    int bye_runs = 0;
+    int leg_bye_runs = 0;
+
+    if (ev.is_wide) {
+        wide_runs = ev.extra_runs;
+    } else if (ev.is_no_ball) {
+        no_ball_runs = ev.extra_runs;
+    } else if (ev.is_leg_bye) {
+        leg_bye_runs = ev.base_runs + ev.extra_runs;
+    } else if (ev.extra_runs > 0) {
+        bye_runs = ev.extra_runs;
+    }
+
+    return wide_runs + no_ball_runs + bye_runs + leg_bye_runs;
+}
+
+static int read_total_extras() {
+    pthread_mutex_lock(&score_mutex);
+    int total = extras_total;
+    pthread_mutex_unlock(&score_mutex);
+    return total;
+}
+
+static int read_global_score() {
+    pthread_mutex_lock(&score_mutex);
+    int score = global_score;
+    pthread_mutex_unlock(&score_mutex);
+    return score;
+}
+
+static void log_pitch_ball_completed(int balls_after, int wickets_after) {
+    int innings_extras = read_total_extras();
+
+    Logger::log(
+        "[Pitch] Ball completed | Balls: " + to_string(balls_after) +
+        " | Wickets: " + to_string(wickets_after) +
+        " | Extras: " + to_string(innings_extras),
+        "UMPIRE"
+    );
+}
+
+static void log_chase_requirement(int balls_after, int score_after) {
+    if (innings != 2) return;
+
+    int balls_left = 120 - balls_after;
+    int runs_needed = target_score - score_after;
+    if (balls_left < 0) balls_left = 0;
+    if (runs_needed < 0) runs_needed = 0;
+
+    Logger::log(
+        "[CHASE] Need " + to_string(runs_needed) + " in " + to_string(balls_left) + " balls",
+        "STATS"
+    );
+}
+
+static void record_extras(const BallEvent& ev) {
+    int delivery_extras = delivery_extras_for_event(ev);
+    if (delivery_extras == 0) return;
+
+    pthread_mutex_lock(&score_mutex);
+    if (ev.is_wide) {
+        extras_wides += ev.extra_runs;
+    } else if (ev.is_no_ball) {
+        extras_no_balls += ev.extra_runs;
+    } else if (ev.is_leg_bye) {
+        extras_leg_byes += ev.base_runs + ev.extra_runs;
+    } else if (ev.extra_runs > 0) {
+        extras_byes += ev.extra_runs;
+    }
+    extras_total += delivery_extras;
+    pthread_mutex_unlock(&score_mutex);
+}
 
 void reset_batting_progress() {
     batsman3_used = false;
@@ -154,30 +231,35 @@ void* bowler_thread(void* arg) {
 
                 }
                 
-                Logger::log(
-                    "[Pitch] Ball completed | Balls: "+to_string(balls_bowled)+
-                    " | Wickets: "+to_string(wickets_fallen),
-                    "UMPIRE"
-                );
+                log_pitch_ball_completed(balls_bowled, wickets_fallen);
 
                 float overs = balls_bowled / 6.0f;
                 current_run_rate = (overs > 0) ? (global_score / overs) : 0;
 
-                string rr_msg = "[STATS] CRR: " + to_string(current_run_rate);
+                stringstream rr_msg;
+                rr_msg << fixed << setprecision(2);
+                rr_msg << "[STATS] CRR: " << current_run_rate;
 
                 if (innings == 2) {
-                    float balls_left = 120 - balls_bowled;
-                    float runs_needed = target_score - global_score;
+                    int balls_left = 120 - balls_bowled;
+                    int runs_needed = target_score - global_score;
+                    if (balls_left < 0) balls_left = 0;
+                    if (runs_needed < 0) runs_needed = 0;
 
                     if (balls_left > 0)
                         required_run_rate = (runs_needed * 6.0f) / balls_left;
                     else
                         required_run_rate = 0;
 
-                    rr_msg += " | RRR: " + to_string(required_run_rate);
+                    if (required_run_rate > 36.0f) {
+                        rr_msg << " | RRR: >36";
+                    } else {
+                        rr_msg << " | RRR: " << required_run_rate;
+                    }
                 }
 
-                Logger::log(rr_msg, "STATS");
+                Logger::log(rr_msg.str(), "STATS");
+                log_chase_requirement(balls_bowled, read_global_score());
 
                 if (!current_event.is_wide && !current_event.is_no_ball){
                     on_ball_completed();
@@ -391,10 +473,13 @@ void* batsman_thread(void* arg) {
                             bowlers[b].wickets++;
                         }
                     }
+                record_extras(current_event);
                 update_score(total_runs);
 
                 // ===== 2ND INNINGS: TARGET CHASE CHECK =====
                 if (innings == 2 && global_score >= target_score) {
+                    log_pitch_ball_completed(balls_bowled, wickets_fallen);
+                    log_chase_requirement(balls_bowled, read_global_score());
 
                     Logger::log("[MATCH] Target chased successfully!", "SYSTEM");
 
@@ -408,11 +493,8 @@ void* batsman_thread(void* arg) {
                     continue;
                 }
 
-                Logger::log(
-                    "[Pitch] Ball completed | Balls: "+to_string(balls_bowled)+
-                    " | Wickets: "+to_string(wickets_fallen),
-                    "UMPIRE"
-                );
+                log_pitch_ball_completed(balls_bowled, wickets_fallen);
+                log_chase_requirement(balls_bowled, read_global_score());
 
                 match_running = false;
 
@@ -510,6 +592,7 @@ void* batsman_thread(void* arg) {
                 "WICKET"
             );
             
+            record_extras(current_event);
             update_score(total_runs);
 
             sem_wait(&crease_sem);   // new batsman occupies crease
@@ -553,9 +636,17 @@ void* batsman_thread(void* arg) {
 
         Logger::log(msg2,"OUTCOME");
 
+        record_extras(current_event);
         update_score(total_runs);
 
         if (innings == 2 && global_score >= target_score) {
+            int projected_balls = balls_bowled;
+            if (!current_event.is_wide && !current_event.is_no_ball) {
+                projected_balls++;
+            }
+
+            log_pitch_ball_completed(projected_balls, wickets_fallen);
+            log_chase_requirement(projected_balls, read_global_score());
             Logger::log("[MATCH] Target chased successfully!", "SYSTEM");
             match_running = false;
 

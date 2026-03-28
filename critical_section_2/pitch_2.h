@@ -103,6 +103,11 @@ extern bool innings_break;       // pause between innings
 
 extern float required_run_rate;  
 extern float current_run_rate;
+extern int extras_total;
+extern int extras_wides;
+extern int extras_no_balls;
+extern int extras_byes;
+extern int extras_leg_byes;
 
 void init_pitch();
 void destroy_pitch();

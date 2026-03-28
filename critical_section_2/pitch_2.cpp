@@ -52,6 +52,11 @@ bool innings_break = false;
 
 float required_run_rate = 0;
 float current_run_rate = 0;
+int extras_total = 0;
+int extras_wides = 0;
+int extras_no_balls = 0;
+int extras_byes = 0;
+int extras_leg_byes = 0;
 
 pthread_mutex_t end1_mutex;   // Striker's crease
 pthread_mutex_t end2_mutex;   // Non-striker's crease
@@ -100,6 +105,11 @@ void init_pitch() {
 
     arrival_time[1] = 0;
     arrival_time[2] = 0;
+    extras_total = 0;
+    extras_wides = 0;
+    extras_no_balls = 0;
+    extras_byes = 0;
+    extras_leg_byes = 0;
 
     pthread_mutex_init(&pitch_mutex,   NULL);
     pthread_mutex_init(&print_mutex,   NULL);
@@ -417,6 +427,11 @@ void reset_for_second_innings() {
 
     striker = 1;
     non_striker = 2;
+    extras_total = 0;
+    extras_wides = 0;
+    extras_no_balls = 0;
+    extras_byes = 0;
+    extras_leg_byes = 0;
 
     free_hit_pending = false;
     next_is_free_hit = false;

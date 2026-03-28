@@ -38,6 +38,14 @@ int main() {
         Logger::log("Final Score: " + to_string(global_score), "SCORE");
         Logger::log("Wickets: " + to_string(wickets_fallen), "SCORE");
         Logger::log("Balls: " + to_string(balls_bowled), "SCORE");
+        Logger::log(
+            "Extras: " + to_string(extras_total) +
+            " (Wides: " + to_string(extras_wides) +
+            ", No Balls: " + to_string(extras_no_balls) +
+            ", Byes: " + to_string(extras_byes) +
+            ", Leg Byes: " + to_string(extras_leg_byes) + ")",
+            "SCORE"
+        );
 
         float total_overs = balls_bowled / 6.0f;
         float net_run_rate = (total_overs > 0) ? (global_score / total_overs) : 0;
