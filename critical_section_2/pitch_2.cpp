@@ -191,6 +191,12 @@ void validate_wicket(BallEvent &ev) {
     //  decision is deferred to decide_lbw() in batsman_thread.)
 }
 
+int get_batsman_type(int id) {
+    if (id <= 3) return 0;        // OPENERS
+    else if (id <= 8) return 1;   // MIDDLE
+    else return 2;                // TAIL
+}
+
 BallEvent generate_event() {
     BallEvent ev;
     ev.is_wide      = false;
@@ -209,8 +215,8 @@ BallEvent generate_event() {
     bool force_wide    = false;
 
     if (!ev.is_free_hit) {
-        if      (t < 70) { }
-        else if (t < 83) { force_wide   = true; }
+        if      (t < 95) { }
+        else if (t < 98) { force_wide   = true; }
         else             { force_no_ball = true; }
     }
 
@@ -281,17 +287,68 @@ BallEvent generate_event() {
 
     free_hit_pending = false;
 
-    int r = rand() % 100;
-    if      (r < 5)  { ev.is_leg_bye = true; ev.base_runs = random_running_runs(); }
-    else if (r < 30) { ev.base_runs = 0; }
-    else if (r < 55) { ev.base_runs = 1; }
-    else if (r < 68) { ev.base_runs = 2; }
-    else if (r < 76) { ev.base_runs = 3; }
-    else if (r < 90) { ev.base_runs = 4; ev.is_boundary = true; }
-    else             { ev.base_runs = 6; ev.is_boundary = true; }
+    // ===== PLAYER-AWARE DISTRIBUTION =====
+    int batsman_type;
 
-    if (!ev.is_boundary)
+    // classify batsman using striker
+    if (striker <= 3) batsman_type = 0;        // OPENERS
+    else if (striker <= 8) batsman_type = 1;   // MIDDLE
+    else batsman_type = 2;                     // TAIL
+
+    int x = rand() % 100;
+
+    // OPENERS
+    if (batsman_type == 0) 
+    {
+        if (x < 35) ev.base_runs = 0;
+        else if (x < 65) ev.base_runs = 1;
+        else if (x < 73) ev.base_runs = 2;
+        else if (x < 75) ev.base_runs = 3;
+        else if (x < 85) { ev.base_runs = 4; ev.is_boundary = true; }
+        else if (x < 90) { ev.base_runs = 6; ev.is_boundary = true; }
+        else {
+            int wt = rand() % 4;
+            ev.wicket = (WicketType)(wt + 1);
+            ev.base_runs = 0;
+        }
+    }
+
+    // MIDDLE ORDER
+    else if (batsman_type == 1) 
+    {
+        if (x < 40) ev.base_runs = 0;
+        else if (x < 70) ev.base_runs = 1;
+        else if (x < 78) ev.base_runs = 2;
+        else if (x < 80) ev.base_runs = 3;
+        else if (x < 88) { ev.base_runs = 4; ev.is_boundary = true; }
+        else if (x < 93) { ev.base_runs = 6; ev.is_boundary = true; }
+        else {
+            int wt = rand() % 4;
+            ev.wicket = (WicketType)(wt + 1);
+            ev.base_runs = 0;
+        }
+    }
+
+    // TAILENDERS
+    else 
+    {
+        if (x < 50) ev.base_runs = 0;
+        else if (x < 75) ev.base_runs = 1;
+        else if (x < 82) ev.base_runs = 2;
+        else if (x < 83) ev.base_runs = 3;
+        else if (x < 90) { ev.base_runs = 4; ev.is_boundary = true; }
+        else if (x < 94) { ev.base_runs = 6; ev.is_boundary = true; }
+        else {
+            int wt = rand() % 4;
+            ev.wicket = (WicketType)(wt + 1);
+            ev.base_runs = 0;
+        }
+    }
+
+    // ball in air logic
+    if (!ev.is_boundary && ev.wicket == NONE && ev.base_runs > 0) {
         ev.ball_in_air = true;
+    }
 
     if (ev.is_free_hit) {
         // On free hit only RUN_OUT is valid — deadlock module handles it;
@@ -299,21 +356,7 @@ BallEvent generate_event() {
         return ev;
     }
 
-    // ---- Normal delivery: generate wicket (no RUN_OUT) ----
-    if (!ev.is_boundary) {
-        int w = rand() % 100;
-        if (w < 18) {
-            // 4 wicket types: BOWLED, CAUGHT, LBW, STUMPED
-            int wt = rand() % 4;
-            switch (wt) {
-                case 0: ev.wicket = BOWLED;  ev.ball_in_air = false; break;
-                case 1: ev.wicket = CAUGHT;  ev.ball_in_air = true;  break;
-                case 2: ev.wicket = LBW;     ev.ball_in_air = false; break;
-                case 3: ev.wicket = STUMPED; ev.ball_in_air = false;  break;
-            }
-            ev.base_runs = 0;
-        }
-    }
+    
 
     if (!ev.is_boundary && ev.wicket == NONE && ev.base_runs > 0 && !ev.is_leg_bye) {
         if (rand() % 100 < 3) {
