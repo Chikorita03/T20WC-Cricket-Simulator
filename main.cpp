@@ -1,5 +1,6 @@
 #include <iostream>
 #include <unistd.h>
+#include "log.h"
 #include "thread_pool/thread_manager.h"
 #include "thread_pool/player_threads_2.h"
 #include "critical_section_2/pitch_2.h"
@@ -8,6 +9,7 @@
 using namespace std;
 
 int main() {
+    Logger::init("log.txt");
     cout << "=== T20 Cricket Simulator ===" << endl;
 
     init_pitch();
@@ -49,5 +51,6 @@ int main() {
              << endl;
         }
     }
+    Logger::close();
     return 0;
 }
