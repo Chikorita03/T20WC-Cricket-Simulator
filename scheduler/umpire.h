@@ -25,3 +25,15 @@ extern BowlerPCB bowlers[NUM_BOWLERS];
 void init_scheduler();
 void on_ball_completed();   // called after valid ball
 int get_current_bowler();
+
+// =============================================================
+// decide_lbw()
+//   Umpire adjudicates an LBW appeal.
+//   Implemented in player_threads_2.cpp (called from
+//   batsman_thread()).  Declared here so any translation unit
+//   that includes umpire.h can reference it.
+//
+//   Returns true  → OUT
+//           false → NOT OUT
+// =============================================================
+bool decide_lbw();

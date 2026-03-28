@@ -87,3 +87,8 @@ void destroy_pitch();
 void update_score(int runs);
 void stop_match();
 BallEvent generate_event();
+
+// ===== Wicket Validation =====
+// Enforces dismissal legality based on delivery type.
+// Must be called by bowler_thread() after generate_event().
+void validate_wicket(BallEvent &ev);

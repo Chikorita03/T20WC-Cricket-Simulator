@@ -31,6 +31,22 @@ int get_current_bowler() {
     return current_bowler;
 }
 
+// =============================================================
+// decide_lbw() — declared here so umpire.h can expose it.
+//
+// Implementation lives in player_threads_2.cpp where it is
+// called from batsman_thread().  This forward-declaration in
+// umpire.cpp keeps the scheduling module aware of the LBW
+// adjudication function without duplicating logic.
+//
+// OS analogy: The umpire is the kernel scheduler.  decide_lbw()
+// is a privileged system call — only the "kernel" (umpire) may
+// authoritatively resolve an LBW appeal, and batsman_thread()
+// invokes it like a syscall, blocking until a verdict is returned.
+// =============================================================
+// (decide_lbw body is in player_threads_2.cpp; see umpire.h
+//  for the extern declaration used across translation units.)
+
 void on_ball_completed() {
 
     balls_in_over++;
@@ -77,16 +93,16 @@ void on_ball_completed() {
 
         for (int i = 0; i < NUM_BOWLERS; i++) {
             int candidate = (next + i) % NUM_BOWLERS;
-            // 🚫 Max 4 overs for ALL bowlers
+            // Max 4 overs for ALL bowlers
             if (bowlers[candidate].balls_bowled >= 24)
             continue;
 
-            // 🚫 Death bowlers: only 2 overs BEFORE death overs
+            // Death bowlers: only 2 overs BEFORE death overs
             if ((candidate == death_bowler_1 || candidate == death_bowler_2) && balls_bowled < 96 && bowlers[candidate].balls_bowled >= 12) continue;
             current_bowler = candidate;
             break;
         }
-        // 🔒 SAFETY FALLBACK
+        // SAFETY FALLBACK
         if (bowlers[current_bowler].balls_bowled >= 24) {
             for (int i = 0; i < NUM_BOWLERS; i++) {
                 if (bowlers[i].balls_bowled < 24) {

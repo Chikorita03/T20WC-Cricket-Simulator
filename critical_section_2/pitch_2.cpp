@@ -133,6 +133,44 @@ static int random_running_runs() {
     else             return 3;
 }
 
+// =============================================================
+// validate_wicket()
+//   Enforces dismissal rules based on delivery type.
+//
+//   OS analogy: This is a policy gate — like an interrupt
+//   handler deciding whether a signal is valid for the current
+//   CPU state.  The "NO BALL / FREE HIT" check maps to a
+//   protected-mode restriction: only a specific operation
+//   (RUN_OUT) is permitted in those special states.
+//
+//   Rules:
+//     - NO BALL  → only RUN_OUT is valid; cancel everything else
+//     - FREE HIT → only RUN_OUT is valid; cancel everything else
+//     - Normal   → BOWLED, CAUGHT, LBW, STUMPED are valid;
+//                  also cancel any stray RUN_OUT (run-out is
+//                  handled separately via deadlock logic)
+// =============================================================
+void validate_wicket(BallEvent &ev) {
+    if (ev.is_no_ball || ev.is_free_hit) {
+        // Only RUN_OUT may dismiss on no-ball / free-hit.
+        // All other wickets are invalid — cancel them.
+        if (ev.wicket != RUN_OUT) {
+            ev.wicket = NONE;
+        }
+        return;
+    }
+
+    // Normal delivery: RUN_OUT is handled by deadlock module —
+    // remove it here so we never double-process it.
+    if (ev.wicket == RUN_OUT) {
+        ev.wicket = NONE;
+    }
+
+    // BOWLED, CAUGHT, LBW, STUMPED are accepted as-is.
+    // (LBW will still pass through; the final out/not-out
+    //  decision is deferred to decide_lbw() in batsman_thread.)
+}
+
 BallEvent generate_event() {
     BallEvent ev;
     ev.is_wide      = false;
@@ -145,8 +183,6 @@ BallEvent generate_event() {
     ev.base_runs    = 0;
     ev.extra_runs   = 0;
     ev.wicket       = NONE;
-
-    ev.is_free_hit = free_hit_pending;
 
     int t = rand() % 100;
     bool force_no_ball = false;
@@ -174,6 +210,12 @@ BallEvent generate_event() {
 
         if (!ev.is_boundary && ev.base_runs > 0)
             ev.ball_in_air = true;
+        // No wicket can occur on no-ball except RUN_OUT —
+        // validate_wicket() will enforce this, so we leave
+        // ev.wicket = NONE here (no RUN_OUT generation).
+        
+        ev.is_free_hit = free_hit_pending;
+
         return ev;
     }
 
@@ -213,10 +255,7 @@ BallEvent generate_event() {
         if (!ev.is_boundary && ev.base_runs > 0)
             ev.ball_in_air = true;
 
-        if (ev.ball_in_air && (rand() % 100 < 4)) {
-            ev.wicket      = RUN_OUT;
-            ev.ball_in_air = true;
-        }
+        // RUN_OUT on no-ball is handled by deadlock module — not generated here.
         return ev;
     }
 
@@ -235,26 +274,24 @@ BallEvent generate_event() {
         ev.ball_in_air = true;
 
     if (ev.is_free_hit) {
-        if (!ev.is_boundary && (rand() % 100 < 5)) {
-            ev.wicket      = RUN_OUT;
-            ev.ball_in_air = true;
-        }
+        // On free hit only RUN_OUT is valid — deadlock module handles it;
+        // do not generate any wicket here.
         return ev;
     }
 
+    // ---- Normal delivery: generate wicket (no RUN_OUT) ----
     if (!ev.is_boundary) {
         int w = rand() % 100;
         if (w < 18) {
-            int wt = rand() % 5;
+            // 4 wicket types: BOWLED, CAUGHT, LBW, STUMPED
+            int wt = rand() % 4;
             switch (wt) {
                 case 0: ev.wicket = BOWLED;  ev.ball_in_air = false; break;
-                case 3: ev.wicket = LBW;     ev.ball_in_air = false; break;
                 case 1: ev.wicket = CAUGHT;  ev.ball_in_air = true;  break;
-                case 2: ev.wicket = RUN_OUT; ev.ball_in_air = true;  break;
-                case 4: ev.wicket = STUMPED; ev.ball_in_air = true;  break;
+                case 2: ev.wicket = LBW;     ev.ball_in_air = false; break;
+                case 3: ev.wicket = STUMPED; ev.ball_in_air = false;  break;
             }
-            if (ev.wicket != RUN_OUT)
-                ev.base_runs = 0;
+            ev.base_runs = 0;
         }
     }
 
