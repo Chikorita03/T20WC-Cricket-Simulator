@@ -20,43 +20,31 @@ static int batsman_ids[2] = {1, 2};
 static int fielder_ids[NUM_FIELDERS];
 
 void create_all_threads() {
-    // ===== Initialize FCFS Batting Order =====
-    // (1 and 2 are already playing)
+    // ===== FCFS: ONLY middle order (4–8) =====
     while (!batting_order_fcfs.empty()) batting_order_fcfs.pop();
-    for (int i = 3; i <= 11; i++) {
+    for (int i = 4; i <= 8; i++) {
         batting_order_fcfs.push(i);
     }
 
-    // ===== Initialize SJF Batting Order =====
+    // ===== SJF: ONLY middle order (4–8) =====
     while (!batting_order_sjf.empty()) batting_order_sjf.pop();
+
     // (expected_balls, player_id)
-    batting_order_sjf.push({5, 11});
-    expected_balls[11]=5;
+    batting_order_sjf.push({20, 4});
+    expected_balls[4] = 20;
+
+    batting_order_sjf.push({15, 5});
+    expected_balls[5] = 15;
+
+    batting_order_sjf.push({10, 6});
+    expected_balls[6] = 10;
+
+    batting_order_sjf.push({8, 7});
+    expected_balls[7] = 8;
+
+    batting_order_sjf.push({5, 8});
+    expected_balls[8] = 5;
     
-    batting_order_sjf.push({7, 10});
-    expected_balls[10]=7;
-
-    batting_order_sjf.push({15, 9});
-    expected_balls[9]=15;
-
-    batting_order_sjf.push({20, 8});
-    expected_balls[8]=20;
-
-    batting_order_sjf.push({25, 7});
-    expected_balls[7]=25;
-
-    batting_order_sjf.push({30, 6});
-    expected_balls[6]=30;
-
-    batting_order_sjf.push({35, 5});
-    expected_balls[5]=35;
-
-    batting_order_sjf.push({40, 4});
-    expected_balls[4]=40;
-
-    batting_order_sjf.push({50, 3});
-    expected_balls[3]=50;
-
     Logger::log(
         "[ThreadManager] Creating " + to_string(1 + 2 + NUM_FIELDERS + 1) + " threads...",
         "SYSTEM"

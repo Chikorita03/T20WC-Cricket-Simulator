@@ -270,6 +270,10 @@ void* batsman_thread(void* arg) {
         }
 
         int total_runs   = current_event.base_runs + current_event.extra_runs;
+        if (!current_event.is_wide) {
+        balls_faced[my_id]++;
+        runs_scored[my_id] += total_runs;
+    }
         int running_runs = current_event.is_wide ? 0 : current_event.base_runs;
 
         bool attempted_run = (!current_event.is_boundary && !current_event.is_wide && current_event.wicket == NONE);
@@ -318,12 +322,27 @@ void* batsman_thread(void* arg) {
         }
 
         if (current_event.wicket != NONE) {
+            completion_time[my_id] = balls_bowled + 1;
+            turnaround_time[my_id] = completion_time[my_id] - arrival_time[my_id];
             sem_post(&crease_sem);
             pthread_mutex_lock(&score_mutex);
             wickets_fallen++;
             pthread_mutex_unlock(&score_mutex);
             // ===== STOP MATCH IF ALL OUT =====
-            if (wickets_fallen == 10){
+                if (wickets_fallen == 10){
+                    if (!current_event.is_wide && !current_event.is_no_ball) {
+
+                        int b = get_current_bowler();
+                        int runs = current_event.base_runs + current_event.extra_runs;
+
+                        bowlers[b].balls_bowled++;
+                        bowlers[b].runs_conceded += runs;
+                        balls_bowled++;
+
+                        if (current_event.wicket != NONE) {
+                            bowlers[b].wickets++;
+                        }
+                    }
                 update_score(total_runs);
 
                 Logger::log(
@@ -335,7 +354,6 @@ void* batsman_thread(void* arg) {
                 Logger::log("[MATCH] All out! Innings ends.", "SYSTEM");
 
                 match_running = false;
-                stop_match();
 
                 pthread_mutex_lock(&pitch_mutex);
                 stroke_done = true;
@@ -373,32 +391,66 @@ void* batsman_thread(void* arg) {
 
             // ===== ONLY IF MATCH CONTINUES → CREATE NEW BATSMAN =====
             
-            int new_id;
+            int new_id=0;
 
-            // ===== SCHEDULER: FCFS vs SJF =====
-        if (use_sjf) {
-            if (!batting_order_sjf.empty()) {
-                new_id = batting_order_sjf.top().second;
-                batting_order_sjf.pop();
-            } else {
+            // ===== TOP ORDER (Batsman 3) =====
+            static bool batsman3_used = false;
+
+            if (!batsman3_used) {
                 new_id = 3;
-            }
+                batsman3_used = true;
 
-            Logger::log("[SJF] Batsman "+to_string(new_id)+" comes in","SCHED");
+                arrival_time[3] = balls_bowled;
 
-        } else {
-            if (!batting_order_fcfs.empty()) {
-                new_id = batting_order_fcfs.front();
-                batting_order_fcfs.pop();
+                Logger::log("[FIXED] Batsman 3 comes in (Top order)", "SCHED");
             } else {
-            new_id = 3;
+
+            // ===== HYBRID ORDER: FIXED + SCHEDULER =====
+            static int next_fixed = 9;
+
+            if (use_sjf) {
+
+                if (!batting_order_sjf.empty()) {
+                    new_id = batting_order_sjf.top().second;
+                    batting_order_sjf.pop();
+
+                    Logger::log("[SJF] Middle-order batsman " + to_string(new_id) + " comes in", "SCHED");
+
+                } else if (next_fixed <= 11) {
+
+                    new_id = next_fixed;
+                    next_fixed++;
+
+                    Logger::log("[TAIL] Batsman " + to_string(new_id) + " comes in", "SCHED");
+
+                } else {
+                    new_id = 11;
+                }
+
+            } else {
+
+                if (!batting_order_fcfs.empty()) {
+                    new_id = batting_order_fcfs.front();
+                    batting_order_fcfs.pop();
+
+                    Logger::log("[FCFS] Middle-order batsman " + to_string(new_id) + " comes in", "SCHED");
+
+                } else if (next_fixed <= 11) {
+
+                    new_id = next_fixed;
+                    next_fixed++;
+
+                    Logger::log("[TAIL] Batsman " + to_string(new_id) + " comes in", "SCHED");
+
+                } else {
+                    new_id = 11;
+                }
             }
-
-            Logger::log("[FCFS] Batsman "+to_string(new_id)+" comes in","SCHED");
         }
-
-            // ===== WAITING TIME: Arrival =====
-            arrival_time[new_id] = balls_bowled;
+        // ===== WAITING TIME: Arrival =====
+            if (arrival_time[new_id] == -1){
+                arrival_time[new_id] = balls_bowled;
+            }
 
             Logger::log(
                 "[Outcome] WICKET - "+string(wicket_name(current_event.wicket)),

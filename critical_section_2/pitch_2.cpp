@@ -68,6 +68,10 @@ int arrival_time[20];
 int start_time[20];
 int waiting_time[20];
 bool has_started[20];
+int balls_faced[20];
+int runs_scored[20];
+int completion_time[20];
+int turnaround_time[20];
 
 
 void init_pitch() {
@@ -79,6 +83,10 @@ void init_pitch() {
     start_time[i] = -1;
     waiting_time[i] = 0;
     has_started[i] = false;
+    balls_faced[i] = 0;
+    runs_scored[i] = 0;
+    completion_time[i] = 0;
+    turnaround_time[i] = 0;
     }
 
     arrival_time[1] = 0;

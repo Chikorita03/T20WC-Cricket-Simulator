@@ -92,6 +92,10 @@ extern int arrival_time[20];
 extern int start_time[20];
 extern int waiting_time[20];
 extern bool has_started[20];
+extern int balls_faced[20];
+extern int runs_scored[20];
+extern int completion_time[20];
+extern int turnaround_time[20];
 
 void init_pitch();
 void destroy_pitch();
