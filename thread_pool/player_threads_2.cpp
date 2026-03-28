@@ -70,7 +70,7 @@ void* bowler_thread(void* arg) {
         int ball = balls_bowled % 6 + 1;
 
         Logger::section(
-            "Over " + to_string(over+1) + "." + to_string(ball) + " | Ball " + to_string(balls_bowled+1)
+            "Over " + to_string(over) + "." + to_string(ball) + " | Ball " + to_string(balls_bowled+1)
         );
 
         int retry_count = 0;
