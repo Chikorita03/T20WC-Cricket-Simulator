@@ -31,14 +31,31 @@ void create_all_threads() {
     while (!batting_order_sjf.empty()) batting_order_sjf.pop();
     // (expected_balls, player_id)
     batting_order_sjf.push({5, 11});
+    expected_balls[11]=5;
+    
     batting_order_sjf.push({7, 10});
+    expected_balls[10]=7;
+
     batting_order_sjf.push({15, 9});
+    expected_balls[9]=15;
+
     batting_order_sjf.push({20, 8});
+    expected_balls[8]=20;
+
     batting_order_sjf.push({25, 7});
+    expected_balls[7]=25;
+
     batting_order_sjf.push({30, 6});
+    expected_balls[6]=30;
+
     batting_order_sjf.push({35, 5});
+    expected_balls[5]=35;
+
     batting_order_sjf.push({40, 4});
+    expected_balls[4]=40;
+
     batting_order_sjf.push({50, 3});
+    expected_balls[3]=50;
 
     Logger::log(
         "[ThreadManager] Creating " + to_string(1 + 2 + NUM_FIELDERS + 1) + " threads...",

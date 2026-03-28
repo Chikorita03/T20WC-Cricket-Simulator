@@ -12,6 +12,20 @@ int main() {
     Logger::init("log.txt");
     Logger::section("Match Start");
 
+    cout<<"Select Scheduling Algorithm\n";
+    cout<<"1. FCFS\n2. SJF\nEnter Choice: ";
+
+    int choice;
+    cin>>choice;
+
+    if(choice==2){
+        use_sjf=true;
+        Logger::log("[SYSTEM] Using SJF Scheduling", "SCHED");
+    }else{
+        use_sjf=false;
+        Logger::log("[SYSTEM] Using FCFS Scheduling", "SCHED");
+    }
+
     init_pitch();
 
     create_all_threads();

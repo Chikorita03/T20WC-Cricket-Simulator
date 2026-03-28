@@ -63,6 +63,17 @@ extern int  balls_bowled;
 extern int  wickets_fallen;
 extern bool match_running;
 
+extern pthread_mutex_t end1_mutex;
+extern pthread_mutex_t end2_mutex;
+
+extern bool striker_mid_pitch;
+extern bool nonstriker_mid_pitch;
+
+extern int striker_dist_run;
+extern int nonstriker_dist_run;
+
+extern int expected_balls[12];
+
 // ===== SCHEDULING MODE =====
 extern bool use_sjf;
 

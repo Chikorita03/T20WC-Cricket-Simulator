@@ -69,11 +69,6 @@ void* bowler_thread(void* arg) {
         int over = balls_bowled / 6;
         int ball = balls_bowled % 6 + 1;
 
-        if(ball==6){
-            over++;
-            ball=0;
-        }
-
         Logger::section(
             "Over " + to_string(over) + "." + to_string(ball) + " | Ball " + to_string(balls_bowled+1)
         );
@@ -277,6 +272,51 @@ void* batsman_thread(void* arg) {
         int total_runs   = current_event.base_runs + current_event.extra_runs;
         int running_runs = current_event.is_wide ? 0 : current_event.base_runs;
 
+        bool attempted_run = (!current_event.is_boundary && !current_event.is_wide && current_event.wicket == NONE);
+
+        if(attempted_run && ball_stopped && keeper_done){
+            if(rand()%100<5){
+                Logger::log("[RAG] Striker holds End1 → requests End2", "RAG");
+                Logger::log("[RAG] Non-striker holds End2 → requests End1", "RAG");
+
+                striker_mid_pitch = true;
+                nonstriker_mid_pitch = true;
+
+                striker_dist_run = rand()%22;
+                nonstriker_dist_run = rand()%22;
+
+                int striker_try = pthread_mutex_trylock(&end2_mutex);
+                int nonstriker_try = pthread_mutex_trylock(&end1_mutex);
+
+                bool deadlock = striker_mid_pitch && nonstriker_mid_pitch;
+
+                if (deadlock){
+                    Logger::log("[DEADLOCK] Circular wait detected!", "RAG");
+
+                    float striker_score =(22.0f - striker_dist_run) * (1.0f / (1 + expected_balls[striker]));
+
+                    float nonstriker_score =(22.0f - nonstriker_dist_run) * (1.0f / (1 + expected_balls[non_striker]));
+
+                    int victim =(striker_score > nonstriker_score) ? striker : non_striker;
+
+                    Logger::log( "[UMPIRE] RUN OUT! Batsman " + to_string(victim), "UMPIRE"
+                    );
+
+                    current_event.wicket = RUN_OUT;
+                    current_event.base_runs = 0;
+                }
+
+                if (striker_try == 0)
+                    pthread_mutex_unlock(&end2_mutex);
+
+                if (nonstriker_try == 0)
+                    pthread_mutex_unlock(&end1_mutex);
+
+                striker_mid_pitch = false;
+                nonstriker_mid_pitch = false;
+            }
+        }
+
         if (current_event.wicket != NONE) {
             sem_post(&crease_sem);
             pthread_mutex_lock(&score_mutex);
@@ -304,10 +344,15 @@ void* batsman_thread(void* arg) {
 
                 break;
             }
-            pthread_mutex_unlock(&score_mutex);
+
             // Wake all threads safely
             if (!match_running) {
                 stop_match();
+
+                pthread_mutex_lock(&pitch_mutex);
+                stroke_done = true;
+                pthread_cond_signal(&stroke_finished);
+                pthread_mutex_unlock(&pitch_mutex);
             }
             
             // ===== IF MATCH ENDED → DO NOT CREATE NEW BATSMAN =====
@@ -365,9 +410,7 @@ void* batsman_thread(void* arg) {
             sem_wait(&crease_sem);   // new batsman occupies crease
 
             my_id = new_id;
-            int old_non_striker = non_striker;
             striker = my_id;
-            non_striker = old_non_striker;
 
             pthread_cond_broadcast(&ball_delivered);
 

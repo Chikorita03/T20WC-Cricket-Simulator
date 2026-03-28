@@ -44,6 +44,17 @@ int  balls_bowled     = 0;
 int  wickets_fallen   = 0;
 bool match_running    = true;
 
+pthread_mutex_t end1_mutex;   // Striker's crease
+pthread_mutex_t end2_mutex;   // Non-striker's crease
+
+int striker_dist_run = 0;
+int nonstriker_dist_run = 0;
+
+bool striker_mid_pitch = false;
+bool nonstriker_mid_pitch = false;
+
+int expected_balls[12];
+
 // ===== Scheduling Mode =====
 bool use_sjf = false;   // Set to true for SJF, false for FCFS
 
@@ -78,6 +89,9 @@ void init_pitch() {
     pthread_mutex_init(&score_mutex,   NULL);
     pthread_mutex_init(&fielder_mutex, NULL);
 
+    pthread_mutex_init(&end1_mutex, NULL);
+    pthread_mutex_init(&end2_mutex, NULL);
+
     pthread_cond_init(&ball_delivered,    NULL);
     pthread_cond_init(&stroke_finished,   NULL);
     pthread_cond_init(&fielder_wake_cond, NULL);
@@ -92,6 +106,9 @@ void destroy_pitch() {
     pthread_mutex_destroy(&score_mutex);
     pthread_mutex_destroy(&fielder_mutex);
 
+    pthread_mutex_destroy(&end1_mutex);
+    pthread_mutex_destroy(&end2_mutex);
+    
     pthread_cond_destroy(&ball_delivered);
     pthread_cond_destroy(&stroke_finished);
     pthread_cond_destroy(&fielder_wake_cond);
