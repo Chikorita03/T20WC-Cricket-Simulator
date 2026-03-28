@@ -1,6 +1,6 @@
 #include <iostream>
-#include "log.h"
 #include <unistd.h>
+#include "log.h"
 #include "thread_pool/thread_manager.h"
 #include "thread_pool/player_threads_2.h"
 #include "critical_section_2/pitch_2.h"
@@ -10,13 +10,13 @@ using namespace std;
 
 int main() {
     Logger::init("log.txt");
-    Logger::section("Match Start");
+    cout << "=== T20 Cricket Simulator ===" << endl;
 
     init_pitch();
 
     create_all_threads();
 
-    while (match_running) {
+    while (balls_bowled < 120) {
         usleep(10000);  // small delay to avoid busy waiting
     }
 
@@ -28,40 +28,29 @@ int main() {
 
     destroy_pitch();
 
-    Logger::section("Match End");
+    cout << "\n=== Match Ended ===" << endl;
+    cout << "Final Score   : " << global_score   << " runs" << endl;
+    cout << "Wickets Fallen: " << wickets_fallen << endl;
+    cout << "Balls Bowled  : " << balls_bowled   << endl;
 
-    Logger::log("Final Score: " + to_string(global_score), "SCORE");
-    Logger::log("Wickets: " + to_string(wickets_fallen), "SCORE");
-    Logger::log("Balls: " + to_string(balls_bowled), "SCORE");
-
-    Logger::section("Final Bowler Stats");
-
-    for(int i=0;i<NUM_BOWLERS;i++)
-    {
-        Logger::log(
-            "Bowler "+to_string(i+1)+
-            " | Balls: "+to_string(bowlers[i].balls_bowled)+
-            " | Runs: "+to_string(bowlers[i].runs_conceded)+
-            " | Wickets: "+to_string(bowlers[i].wickets),
-            "BOWLER"
-        );
+    cout << "\n===== FINAL BOWLER STATS (RR Scheduler) =====" << endl;
+    for (int i = 0; i < NUM_BOWLERS; i++) {
+        cout << "Bowler " << i
+         << " | Balls: " << bowlers[i].balls_bowled
+         << " | Runs: " << bowlers[i].runs_conceded
+         << " | Wickets: " << bowlers[i].wickets
+         << endl;
     }
 
-    Logger::section("Waiting Time Analysis");
+    cout << "\n===== WAITING TIME ANALYSIS =====\n";
 
-    for(int i=1;i<=11;i++)
-    {
-        if(arrival_time[i]!=-1)
-        {
-            Logger::log(
-                "Batsman "+to_string(i)+
-                " | Waiting Time: "+to_string(waiting_time[i]),
-                "BATSMAN"
-            );
+    for (int i = 1; i <= 11; i++) {
+        if (arrival_time[i] != -1) {
+        cout << "Batsman " << i
+             << " | Waiting Time: " << waiting_time[i]
+             << endl;
         }
     }
-
     Logger::close();
-
     return 0;
 }
