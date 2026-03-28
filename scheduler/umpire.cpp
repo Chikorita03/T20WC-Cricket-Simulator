@@ -2,6 +2,7 @@
 #include <iostream>
 #include "log.h"
 #include <sstream>
+#include <algorithm>
 #include <pthread.h>
 
 using namespace std;
@@ -10,7 +11,22 @@ int current_bowler = 0;
 int balls_in_over  = 0;
 int death_bowler_1 = 3;
 int death_bowler_2 = 4;
+float match_intensity = 0.0f;
 extern int balls_bowled;
+
+static constexpr int TOTAL_OVERS = 20;
+static constexpr int TOTAL_BALLS = TOTAL_OVERS * OVER_BALLS;
+static constexpr int MAX_BALLS_PER_BOWLER = 4 * OVER_BALLS;
+static constexpr float DEATH_OVERS_INTENSITY_THRESHOLD = 0.80f; // ~last 20%
+
+static void refresh_match_intensity() {
+    float raw = static_cast<float>(balls_bowled) / static_cast<float>(TOTAL_BALLS);
+    match_intensity = std::clamp(raw, 0.0f, 1.0f);
+}
+
+static bool in_death_phase() {
+    return match_intensity >= DEATH_OVERS_INTENSITY_THRESHOLD;
+}
 
 // ===== ROUND ROBIN: Bowler PCBs =====
 BowlerPCB bowlers[NUM_BOWLERS];
@@ -18,6 +34,7 @@ BowlerPCB bowlers[NUM_BOWLERS];
 void init_scheduler() {
     current_bowler = 0;
     balls_in_over  = 0;
+    match_intensity = 0.0f;
 
     // ===== Initialize Bowler PCBs =====
 for (int i = 0; i < NUM_BOWLERS; i++) {
@@ -50,9 +67,10 @@ int get_current_bowler() {
 void on_ball_completed() {
 
     balls_in_over++;
+    refresh_match_intensity();
 
-    // ===== PRIORITY: LAST 4 OVERS =====
-    if (balls_bowled >= 96) {
+    // ===== PRIORITY: HIGH-INTENSITY PHASE (DEATH OVERS) =====
+    if (in_death_phase()) {
 
         if (balls_in_over >= OVER_BALLS) {
 
@@ -68,7 +86,8 @@ void on_ball_completed() {
             toggle = 1 - toggle;
 
             Logger::log(
-                "[PRIORITY] Death Over! Bowler "+to_string(current_bowler+1)+" is bowling",
+                "[PRIORITY] High intensity phase! Bowler " + to_string(current_bowler + 1) +
+                " is bowling (intensity: " + to_string(match_intensity) + ")",
                 "UMPIRE"
             );
                     }
@@ -97,18 +116,22 @@ void on_ball_completed() {
         for (int i = 0; i < NUM_BOWLERS; i++) {
             int candidate = (next + i) % NUM_BOWLERS;
             // Max 4 overs for ALL bowlers
-            if (bowlers[candidate].balls_bowled >= 24)
+            if (bowlers[candidate].balls_bowled >= MAX_BALLS_PER_BOWLER)
             continue;
 
-            // Death bowlers: only 2 overs BEFORE death overs
-            if ((candidate == death_bowler_1 || candidate == death_bowler_2) && balls_bowled < 96 && bowlers[candidate].balls_bowled >= 12) continue;
+            // Death bowlers are conserved in low intensity and released
+            // gradually as the match intensity rises.
+            int pre_death_cap_balls = static_cast<int>((2.0f + match_intensity * 2.0f) * OVER_BALLS);
+            if ((candidate == death_bowler_1 || candidate == death_bowler_2) &&
+                !in_death_phase() &&
+                bowlers[candidate].balls_bowled >= pre_death_cap_balls) continue;
             current_bowler = candidate;
             break;
         }
         // SAFETY FALLBACK
-        if (bowlers[current_bowler].balls_bowled >= 24) {
+        if (bowlers[current_bowler].balls_bowled >= MAX_BALLS_PER_BOWLER) {
             for (int i = 0; i < NUM_BOWLERS; i++) {
-                if (bowlers[i].balls_bowled < 24) {
+                if (bowlers[i].balls_bowled < MAX_BALLS_PER_BOWLER) {
                     current_bowler = i;
                     break;
                 }

@@ -8,6 +8,7 @@ extern int current_bowler;
 extern int balls_in_over;
 extern int death_bowler_1;
 extern int death_bowler_2;
+extern float match_intensity;
 
 // ===== ROUND ROBIN SCHEDULING =====
 // Each bowler is treated as a process.
