@@ -151,6 +151,13 @@ void* bowler_thread(void* arg) {
                     "UMPIRE"
                 );
 
+                float overs = balls_bowled / 6.0f;
+                float run_rate = (overs > 0) ? (global_score / overs) : 0;
+                Logger::log(
+                    "[STATS] CRR: " + to_string(run_rate),
+                    "STATS"
+                );
+
                 if (!current_event.is_wide && !current_event.is_no_ball){
                     on_ball_completed();
                     Logger::log(" ", "");

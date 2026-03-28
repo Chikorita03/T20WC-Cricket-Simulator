@@ -1,4 +1,6 @@
 #include <iostream>
+#include <iomanip>
+#include <sstream>
 #include "log.h"
 #include <unistd.h>
 #include "thread_pool/thread_manager.h"
@@ -47,6 +49,18 @@ int main() {
     Logger::log("Final Score: " + to_string(global_score), "SCORE");
     Logger::log("Wickets: " + to_string(wickets_fallen), "SCORE");
     Logger::log("Balls: " + to_string(balls_bowled), "SCORE");
+    float total_overs = balls_bowled / 6.0f;
+
+    float net_run_rate = (total_overs > 0) ? (global_score / total_overs) : 0;
+
+    stringstream ss;
+    ss << fixed << setprecision(2) << net_run_rate;
+
+    Logger::log(
+        "NRR: " + ss.str(),
+        "STATS"
+    );
+
 
     Logger::section("Final Bowler Stats");
 
