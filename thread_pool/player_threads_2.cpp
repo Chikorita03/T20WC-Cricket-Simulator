@@ -69,6 +69,11 @@ void* bowler_thread(void* arg) {
         int over = balls_bowled / 6;
         int ball = balls_bowled % 6 + 1;
 
+        if(ball==6){
+            over++;
+            ball=0;
+        }
+
         Logger::section(
             "Over " + to_string(over) + "." + to_string(ball) + " | Ball " + to_string(balls_bowled+1)
         );
