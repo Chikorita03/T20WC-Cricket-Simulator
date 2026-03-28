@@ -745,4 +745,55 @@ void* fielder_thread(void* arg) {
     return NULL;
 }
 
+// =============================================================
+// wicket_keeper_thread()
+//   Handles STUMPED dismissals exclusively.
+//
+//   OS analogy: dedicated interrupt handler for a specific
+//   interrupt vector (STUMPED).  It only acts if the ball has
+//   not already been claimed (ball_stopped == false), preventing
+//   a race with fielders.
+// =============================================================
+void* wicket_keeper_thread(void* arg) {
+    while (match_running) {
+        pthread_mutex_lock(&fielder_mutex);
+
+        while (!ball_active && match_running) {
+            pthread_cond_wait(&fielder_wake_cond, &fielder_mutex);
+        }
+
+        if (!match_running) {
+            pthread_mutex_unlock(&fielder_mutex);
+            break;
+        }
+
+        if (current_event.wicket == STUMPED) {
+            // STUMPED: keeper acts only if ball not already stopped
+            // (guards against a fielder accidentally claiming the ball
+            //  when wicket == STUMPED, which fielder_thread now prevents)
+            if (!ball_stopped) {
+                Logger::log("[Keeper] STUMPED!","KEEPER");
+
+                ball_owner   = 0;   // 0 = keeper owns the ball
+                ball_stopped = true;
+                pthread_cond_broadcast(&fielder_wake_cond);
+            }
+        } else {
+            // Non-stumped ball: keeper receives safely if no fielder got it
+            if (ball_owner == -1 && !ball_stopped) {
+                Logger::log("[Keeper] Ball safely in gloves","KEEPER");
+            }
+        }
+
+        keeper_done = true;
+        pthread_cond_broadcast(&fielder_wake_cond);
+
+        while (ball_active && match_running) {
+            pthread_cond_wait(&fielder_wake_cond, &fielder_mutex);
+        }
+
+        pthread_mutex_unlock(&fielder_mutex);
+    }
+    return NULL;
+}
 
