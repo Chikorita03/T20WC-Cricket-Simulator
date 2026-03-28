@@ -327,12 +327,12 @@ BallEvent generate_event() {
     // OPENERS
     if (batsman_type == 0) 
     {
-        if (x < 35) ev.base_runs = 0;
-        else if (x < 65) ev.base_runs = 1;
-        else if (x < 73) ev.base_runs = 2;
-        else if (x < 75) ev.base_runs = 3;
-        else if (x < 85) { ev.base_runs = 4; ev.is_boundary = true; }
-        else if (x < 90) { ev.base_runs = 6; ev.is_boundary = true; }
+        if (x < 30) ev.base_runs = 0;
+        else if (x < 62) ev.base_runs = 1;
+        else if (x < 72) ev.base_runs = 2;
+        else if (x < 74) ev.base_runs = 3;
+        else if (x < 88) { ev.base_runs = 4; ev.is_boundary = true; }
+        else if (x < 95) { ev.base_runs = 6; ev.is_boundary = true; }
         else {
             int wt = rand() % 4;
             ev.wicket = (WicketType)(wt + 1);
@@ -343,12 +343,12 @@ BallEvent generate_event() {
     // MIDDLE ORDER
     else if (batsman_type == 1) 
     {
-        if (x < 40) ev.base_runs = 0;
-        else if (x < 70) ev.base_runs = 1;
+        if (x < 34) ev.base_runs = 0;
+        else if (x < 68) ev.base_runs = 1;
         else if (x < 78) ev.base_runs = 2;
         else if (x < 80) ev.base_runs = 3;
-        else if (x < 88) { ev.base_runs = 4; ev.is_boundary = true; }
-        else if (x < 93) { ev.base_runs = 6; ev.is_boundary = true; }
+        else if (x < 92) { ev.base_runs = 4; ev.is_boundary = true; }
+        else if (x < 97) { ev.base_runs = 6; ev.is_boundary = true; }
         else {
             int wt = rand() % 4;
             ev.wicket = (WicketType)(wt + 1);
@@ -359,12 +359,12 @@ BallEvent generate_event() {
     // TAILENDERS
     else 
     {
-        if (x < 50) ev.base_runs = 0;
-        else if (x < 75) ev.base_runs = 1;
-        else if (x < 82) ev.base_runs = 2;
-        else if (x < 83) ev.base_runs = 3;
-        else if (x < 90) { ev.base_runs = 4; ev.is_boundary = true; }
-        else if (x < 94) { ev.base_runs = 6; ev.is_boundary = true; }
+        if (x < 45) ev.base_runs = 0;
+        else if (x < 73) ev.base_runs = 1;
+        else if (x < 81) ev.base_runs = 2;
+        else if (x < 82) ev.base_runs = 3;
+        else if (x < 92) { ev.base_runs = 4; ev.is_boundary = true; }
+        else if (x < 96) { ev.base_runs = 6; ev.is_boundary = true; }
         else {
             int wt = rand() % 4;
             ev.wicket = (WicketType)(wt + 1);
