@@ -12,6 +12,13 @@
 using namespace std;
 
 static BallEvent current_event;
+static bool batsman3_used = false;
+static int next_fixed = 9;
+
+void reset_batting_progress() {
+    batsman3_used = false;
+    next_fixed = 9;
+}
 
 const char* wicket_name(int wt) {
     switch (wt) {
@@ -58,6 +65,7 @@ bool decide_lbw() {
 // =============================================================
 void* bowler_thread(void* arg) {
     while (match_running) {
+        bool innings_finished = false;
         pthread_mutex_lock(&pitch_mutex);
 
         if (!match_running) {
@@ -120,6 +128,7 @@ void* bowler_thread(void* arg) {
 
             while (!stroke_done && match_running) {
                 pthread_cond_wait(&stroke_finished, &pitch_mutex);
+
             }
 
             if(!match_running){
@@ -152,14 +161,37 @@ void* bowler_thread(void* arg) {
                 );
 
                 float overs = balls_bowled / 6.0f;
-                float run_rate = (overs > 0) ? (global_score / overs) : 0;
-                Logger::log(
-                    "[STATS] CRR: " + to_string(run_rate),
-                    "STATS"
-                );
+                current_run_rate = (overs > 0) ? (global_score / overs) : 0;
+
+                string rr_msg = "[STATS] CRR: " + to_string(current_run_rate);
+
+                if (innings == 2) {
+                    float balls_left = 120 - balls_bowled;
+                    float runs_needed = target_score - global_score;
+
+                    if (balls_left > 0)
+                        required_run_rate = (runs_needed * 6.0f) / balls_left;
+                    else
+                        required_run_rate = 0;
+
+                    rr_msg += " | RRR: " + to_string(required_run_rate);
+                }
+
+                Logger::log(rr_msg, "STATS");
 
                 if (!current_event.is_wide && !current_event.is_no_ball){
                     on_ball_completed();
+
+                    if (balls_bowled >= 120) {
+                        if (innings == 1)
+                            Logger::log("[MATCH] Innings 1 complete! 20 overs finished.", "SYSTEM");
+                        else
+                            Logger::log("[MATCH] Innings 2 complete! 20 overs finished.", "SYSTEM");
+
+                        match_running = false;
+                        innings_finished = true;
+                    }
+
                     Logger::log(" ", "");
                     break;   // exit retry loop on valid ball
                 }
@@ -169,6 +201,10 @@ void* bowler_thread(void* arg) {
         }
 
         pthread_mutex_unlock(&pitch_mutex);
+
+        if (innings_finished) {
+            stop_match();
+        }
 
         if (match_running) sleep(1);
     }
@@ -337,6 +373,11 @@ void* batsman_thread(void* arg) {
             pthread_mutex_unlock(&score_mutex);
             // ===== STOP MATCH IF ALL OUT =====
                 if (wickets_fallen == 10){
+                    if (innings == 1)
+                        Logger::log("[MATCH] Innings 1 complete!", "SYSTEM");
+                    else
+                        Logger::log("[MATCH] Team 2 all out!", "SYSTEM");
+
                     if (!current_event.is_wide && !current_event.is_no_ball) {
 
                         int b = get_current_bowler();
@@ -352,13 +393,26 @@ void* batsman_thread(void* arg) {
                     }
                 update_score(total_runs);
 
+                // ===== 2ND INNINGS: TARGET CHASE CHECK =====
+                if (innings == 2 && global_score >= target_score) {
+
+                    Logger::log("[MATCH] Target chased successfully!", "SYSTEM");
+
+                    match_running = false;
+
+                    pthread_mutex_lock(&pitch_mutex);
+                    stroke_done = true;
+                    pthread_cond_signal(&stroke_finished);
+                    pthread_mutex_unlock(&pitch_mutex);
+
+                    continue;
+                }
+
                 Logger::log(
-                    "[Pitch] Ball completed | Balls: "+to_string(balls_bowled+1)+
+                    "[Pitch] Ball completed | Balls: "+to_string(balls_bowled)+
                     " | Wickets: "+to_string(wickets_fallen),
                     "UMPIRE"
                 );
-
-                Logger::log("[MATCH] All out! Innings ends.", "SYSTEM");
 
                 match_running = false;
 
@@ -380,20 +434,16 @@ void* batsman_thread(void* arg) {
                 pthread_mutex_unlock(&pitch_mutex);
             }
             
-            // ===== IF MATCH ENDED → DO NOT CREATE NEW BATSMAN =====
             if (!match_running) {
-
-                Logger::log("[MATCH] All out! Innings ends.", "SYSTEM");
 
                 stop_match();
 
-                // Complete current ball safely
                 pthread_mutex_lock(&pitch_mutex);
                 stroke_done = true;
                 pthread_cond_signal(&stroke_finished);
                 pthread_mutex_unlock(&pitch_mutex);
 
-                continue;   // IMPORTANT: skip batsman creation
+                continue;   // IMPORTANT: exit thread cleanly
             }
 
             // ===== ONLY IF MATCH CONTINUES → CREATE NEW BATSMAN =====
@@ -401,8 +451,6 @@ void* batsman_thread(void* arg) {
             int new_id=0;
 
             // ===== TOP ORDER (Batsman 3) =====
-            static bool batsman3_used = false;
-
             if (!batsman3_used) {
                 new_id = 3;
                 batsman3_used = true;
@@ -413,8 +461,6 @@ void* batsman_thread(void* arg) {
             } else {
 
             // ===== HYBRID ORDER: FIXED + SCHEDULER =====
-            static int next_fixed = 9;
-
             if (use_sjf) {
 
                 if (!batting_order_sjf.empty()) {
@@ -508,6 +554,24 @@ void* batsman_thread(void* arg) {
         Logger::log(msg2,"OUTCOME");
 
         update_score(total_runs);
+
+        if (innings == 2 && global_score >= target_score) {
+            Logger::log("[MATCH] Target chased successfully!", "SYSTEM");
+            match_running = false;
+
+            if (current_event.ball_in_air) {
+                pthread_mutex_lock(&fielder_mutex);
+                ball_active = false;
+                pthread_cond_broadcast(&fielder_wake_cond);
+                pthread_mutex_unlock(&fielder_mutex);
+            }
+
+            pthread_mutex_lock(&pitch_mutex);
+            stroke_done = true;
+            pthread_cond_signal(&stroke_finished);
+            pthread_mutex_unlock(&pitch_mutex);
+            continue;
+        }
 
         if (current_event.wicket == NONE && running_runs % 2 == 1) {
             pthread_mutex_lock(&score_mutex);

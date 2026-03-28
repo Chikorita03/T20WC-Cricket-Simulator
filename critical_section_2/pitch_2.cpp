@@ -7,6 +7,8 @@
 #include <queue>
 #include <vector>
 #include <functional>
+#include "../thread_pool/player_threads_2.h"
+#include "../scheduler/umpire.h"
 
 using namespace std;
 
@@ -43,6 +45,13 @@ bool free_hit_pending = false;
 int  balls_bowled     = 0;
 int  wickets_fallen   = 0;
 bool match_running    = true;
+
+int innings = 1;
+int target_score = 0;
+bool innings_break = false;
+
+float required_run_rate = 0;
+float current_run_rate = 0;
 
 pthread_mutex_t end1_mutex;   // Striker's crease
 pthread_mutex_t end2_mutex;   // Non-striker's crease
@@ -377,4 +386,69 @@ BallEvent generate_event() {
     }
 
     return ev;
+}
+
+void reset_for_second_innings() {
+
+    Logger::section("=== INNINGS BREAK ===");
+
+    target_score = global_score + 1;
+
+    Logger::log(
+        "[TARGET] Team 2 needs " + to_string(target_score) + " runs",
+        "SYSTEM"
+    );
+
+    // Reset match state
+    global_score = 0;
+    balls_bowled = 0;
+    wickets_fallen = 0;
+    ball_ready = false;
+    stroke_done = true;
+    ball_active = false;
+    ball_stopped = false;
+    keeper_done = false;
+    ball_owner = -1;
+    backup_fielder = -1;
+    ball_in_air = false;
+    boundary = false;
+    is_running = false;
+    wicket_attempt = false;
+
+    striker = 1;
+    non_striker = 2;
+
+    free_hit_pending = false;
+    next_is_free_hit = false;
+
+    match_running = true;
+    current_run_rate = 0;
+    required_run_rate = 0;
+    arrival_time[1] = 0;
+    arrival_time[2] = 0;
+
+    // Reset stats
+    for (int i = 0; i < 20; i++) {
+        arrival_time[i] = -1;
+        start_time[i] = -1;
+        waiting_time[i] = 0;
+        balls_faced[i] = 0;
+        runs_scored[i] = 0;
+        has_started[i] = false;
+        completion_time[i] = 0;
+        turnaround_time[i] = 0;
+    }
+    arrival_time[1] = 0;
+    arrival_time[2] = 0;
+    reset_batting_progress();
+    sem_destroy(&crease_sem);
+    sem_init(&crease_sem, 0, 2);
+
+    // ===== RESET BOWLER STATS FOR 2ND INNINGS =====
+    for (int i = 0; i < NUM_BOWLERS; i++) {
+        bowlers[i].runs_conceded = 0;
+        bowlers[i].balls_bowled  = 0;
+        bowlers[i].wickets       = 0;
+    }   
+    innings = 2;
 }

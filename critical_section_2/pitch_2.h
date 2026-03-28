@@ -97,11 +97,19 @@ extern int runs_scored[20];
 extern int completion_time[20];
 extern int turnaround_time[20];
 
+extern int innings;              // 1 or 2
+extern int target_score;         // score to chase
+extern bool innings_break;       // pause between innings
+
+extern float required_run_rate;  
+extern float current_run_rate;
+
 void init_pitch();
 void destroy_pitch();
 void update_score(int runs);
 void stop_match();
 BallEvent generate_event();
+void reset_for_second_innings();
 
 // ===== Wicket Validation =====
 // Enforces dismissal legality based on delivery type.
