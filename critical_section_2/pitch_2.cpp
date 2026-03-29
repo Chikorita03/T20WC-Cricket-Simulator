@@ -112,6 +112,7 @@ bool striker_mid_pitch = false;
 bool nonstriker_mid_pitch = false;
 
 int expected_balls[12];
+bool use_sjf = false;
 
 queue<int> batting_order_fcfs;
 
