@@ -109,12 +109,12 @@ int main() {
         }
     };
 
-    // ===== FIRST INNINGS =====
+    // first innings 
     while (match_running) {
         usleep(10000);
     }
 
-    // STOP THREAD FLOW
+    // stop thread flow
     match_running = false;
     stop_match();
     join_all_threads();
@@ -122,16 +122,16 @@ int main() {
     print_gantt_chart();
     clear_gantt_chart();
 
-    // ===== START SECOND INNINGS =====
+    // start second innings
     reset_for_second_innings();
     create_all_threads();
 
-    // ===== SECOND INNINGS =====
+    // second innings
     while (match_running) {
         usleep(10000);
     }
 
-    // FINAL STOP
+    // final stop
     match_running = false;
     stop_match();
 
