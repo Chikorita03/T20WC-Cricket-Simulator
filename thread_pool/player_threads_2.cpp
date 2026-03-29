@@ -9,6 +9,7 @@
 #include <ctime>
 #include <pthread.h>
 #include "../scheduler/umpire.h"
+#include "../thread_pool/gantt.h"
 
 using namespace std;
 
@@ -194,10 +195,19 @@ void* bowler_thread(void* arg) {
             else if(current_event.is_no_ball)
                 msg="[Bowler] NO BALL - next ball is a free hit";
             else
-                msg="[Bowler "+to_string(get_current_bowler())+
+                msg="[Bowler "+to_string(get_current_bowler() + 1)+
                     "] Delivering ball "+to_string(balls_bowled+1);
 
             Logger::log(msg,"BOWLER");
+
+            if (!current_event.is_wide && !current_event.is_no_ball) {
+                record_delivery_start_context(
+                    balls_bowled + 1,
+                    get_current_bowler() + 1,
+                    striker,
+                    non_striker
+                );
+            }
 
             ball_ready  = true;
             stroke_done = false;
@@ -812,4 +822,3 @@ void* wicket_keeper_thread(void* arg) {
     }
     return NULL;
 }
-

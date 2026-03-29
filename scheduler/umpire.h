@@ -26,6 +26,7 @@ extern BowlerPCB bowlers[NUM_BOWLERS];
 void init_scheduler();
 void on_ball_completed();   // called after valid ball
 int get_current_bowler();
+void record_delivery_start_context(int ball, int bowler, int striker, int non_striker);
 
 // =============================================================
 // decide_lbw()
@@ -36,5 +37,4 @@ int get_current_bowler();
 //
 //   Returns true  → OUT
 //           false → NOT OUT
-// =============================================================
 bool decide_lbw();

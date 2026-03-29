@@ -4,15 +4,28 @@
 #include <sstream>
 #include <algorithm>
 #include <pthread.h>
+#include "../thread_pool/gantt.h"
+#include "../critical_section_2/pitch_2.h"
 
 using namespace std;
 
 int current_bowler = 0;
 int balls_in_over  = 0;
-int death_bowler_1 = 3;
-int death_bowler_2 = 4;
+// Internal indices are 0-based, so 2/3 map to printed bowlers 3/4.
+int death_bowler_1 = 2;
+int death_bowler_2 = 3;
 float match_intensity = 0.0f;
 extern int balls_bowled;
+
+struct DeliveryStartContext {
+    int ball = 0;
+    int bowler = 0;
+    int striker = 0;
+    int non_striker = 0;
+    bool valid = false;
+};
+
+static DeliveryStartContext delivery_start_ctx;
 
 static constexpr int TOTAL_OVERS = 20;
 static constexpr int TOTAL_BALLS = TOTAL_OVERS * OVER_BALLS;
@@ -48,6 +61,14 @@ int get_current_bowler() {
     return current_bowler;
 }
 
+void record_delivery_start_context(int ball, int bowler, int striker_id, int non_striker_id) {
+    delivery_start_ctx.ball = ball;
+    delivery_start_ctx.bowler = bowler;
+    delivery_start_ctx.striker = striker_id;
+    delivery_start_ctx.non_striker = non_striker_id;
+    delivery_start_ctx.valid = true;
+}
+
 // =============================================================
 // decide_lbw() — declared here so umpire.h can expose it.
 //
@@ -65,6 +86,12 @@ int get_current_bowler() {
 //  for the extern declaration used across translation units.)
 
 void on_ball_completed() {
+    // Gantt should reflect who was on strike at the start of the ball.
+    const int ball_number = delivery_start_ctx.valid ? delivery_start_ctx.ball : balls_bowled;
+    const int bowler_for_ball = delivery_start_ctx.valid ? delivery_start_ctx.bowler : (current_bowler + 1);
+    const int striker_for_ball = delivery_start_ctx.valid ? delivery_start_ctx.striker : striker;
+    const int non_striker_for_ball = delivery_start_ctx.valid ? delivery_start_ctx.non_striker : non_striker;
+    delivery_start_ctx.valid = false;
 
     balls_in_over++;
     refresh_match_intensity();
@@ -91,6 +118,7 @@ void on_ball_completed() {
                 "UMPIRE"
             );
                     }
+        log_gantt(ball_number, bowler_for_ball, striker_for_ball, non_striker_for_ball);
         return;
     }
     
@@ -148,5 +176,6 @@ void on_ball_completed() {
             Logger::log(msg, "UMPIRE");
         }
     }
+    log_gantt(ball_number, bowler_for_ball, striker_for_ball, non_striker_for_ball);
 }
     

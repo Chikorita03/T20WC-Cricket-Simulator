@@ -7,6 +7,7 @@
 #include "thread_pool/player_threads_2.h"
 #include "critical_section_2/pitch_2.h"
 #include "scheduler/umpire.h"
+#include "thread_pool/gantt.h"
 
 using namespace std;
 
@@ -118,6 +119,8 @@ int main() {
     stop_match();
     join_all_threads();
     print_innings_summary("First Innings End");
+    print_gantt_chart();
+    clear_gantt_chart();
 
     // ===== START SECOND INNINGS =====
     reset_for_second_innings();
@@ -134,6 +137,7 @@ int main() {
 
     join_all_threads();
     print_innings_summary("Second Innings End");
+    print_gantt_chart();
 
     destroy_pitch();
 
