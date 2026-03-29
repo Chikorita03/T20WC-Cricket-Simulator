@@ -505,6 +505,9 @@ void* batsman_thread(void* arg) {
 
                 //2nd innings: traget chase check
                 if (innings == 2 && global_score >= target_score) {
+                    if (!current_event.is_wide && !current_event.is_no_ball) {
+                        on_ball_completed();
+                    }
                     log_pitch_ball_completed(balls_bowled, wickets_fallen);
                     log_chase_requirement(balls_bowled, read_global_score());
 
@@ -657,13 +660,21 @@ void* batsman_thread(void* arg) {
         update_score(total_runs);
 
         if (innings == 2 && global_score >= target_score) {
-            int projected_balls = balls_bowled;
             if (!current_event.is_wide && !current_event.is_no_ball) {
-                projected_balls++;
+                int b = get_current_bowler();
+                int runs = current_event.base_runs + current_event.extra_runs;
+
+                bowlers[b].balls_bowled++;
+                bowlers[b].runs_conceded += runs;
+                if (current_event.wicket != NONE) {
+                    bowlers[b].wickets++;
+                }
+                balls_bowled++;
+                on_ball_completed();
             }
 
-            log_pitch_ball_completed(projected_balls, wickets_fallen);
-            log_chase_requirement(projected_balls, read_global_score());
+            log_pitch_ball_completed(balls_bowled, wickets_fallen);
+            log_chase_requirement(balls_bowled, read_global_score());
             Logger::log("[MATCH] Target chased successfully!", "SYSTEM");
             match_running = false;
 

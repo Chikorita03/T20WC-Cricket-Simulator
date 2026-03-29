@@ -52,6 +52,7 @@ void create_all_threads() {
     //internal indices are 0-based: 2/3 -> displayed bowlers in the outputs: 3/4
     death_bowler_1 = 2;
     death_bowler_2 = 3;
+    init_scheduler();
 
     //bowler - owns the pitch for one full ball lifecycle
     pthread_create(&bowler, NULL, bowler_thread, NULL);
@@ -69,7 +70,6 @@ void create_all_threads() {
     //wicket keeper - like a fielder and also handles stumping
     pthread_create(&wicket_keeper, NULL, wicket_keeper_thread, NULL);
 
-    init_scheduler();
 }
 
 void join_all_threads() {
