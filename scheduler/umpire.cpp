@@ -30,6 +30,7 @@ static DeliveryStartContext delivery_start_ctx;
 static constexpr int TOTAL_OVERS = 20;
 static constexpr int TOTAL_BALLS = TOTAL_OVERS * OVER_BALLS;
 static constexpr int MAX_BALLS_PER_BOWLER = 4 * OVER_BALLS;
+static constexpr int PRE_DEATH_CAP_BALLS = 2 * OVER_BALLS;
 static constexpr float DEATH_OVERS_INTENSITY_THRESHOLD = 0.80f; // ~last 20%
 
 static void refresh_match_intensity() {
@@ -104,11 +105,22 @@ void on_ball_completed() {
             balls_in_over = 0;
 
             static int toggle = 0;
+            int preferred = (toggle == 0) ? death_bowler_1 : death_bowler_2;
+            int alternate = (toggle == 0) ? death_bowler_2 : death_bowler_1;
 
-            if (toggle == 0)
-                current_bowler = death_bowler_1;
-            else
-                current_bowler = death_bowler_2;
+            if (bowlers[preferred].balls_bowled < MAX_BALLS_PER_BOWLER) {
+                current_bowler = preferred;
+            } else if (bowlers[alternate].balls_bowled < MAX_BALLS_PER_BOWLER) {
+                current_bowler = alternate;
+            } else {
+                // Safety fallback: choose any bowler with balls remaining.
+                for (int i = 0; i < NUM_BOWLERS; i++) {
+                    if (bowlers[i].balls_bowled < MAX_BALLS_PER_BOWLER) {
+                        current_bowler = i;
+                        break;
+                    }
+                }
+            }
 
             toggle = 1 - toggle;
 
@@ -147,12 +159,10 @@ void on_ball_completed() {
             if (bowlers[candidate].balls_bowled >= MAX_BALLS_PER_BOWLER)
             continue;
 
-            // Death bowlers are conserved in low intensity and released
-            // gradually as the match intensity rises.
-            int pre_death_cap_balls = static_cast<int>((2.0f + match_intensity * 2.0f) * OVER_BALLS);
+            // Before death phase, death bowlers can bowl at most 2 overs (12 balls).
             if ((candidate == death_bowler_1 || candidate == death_bowler_2) &&
                 !in_death_phase() &&
-                bowlers[candidate].balls_bowled >= pre_death_cap_balls) continue;
+                bowlers[candidate].balls_bowled >= PRE_DEATH_CAP_BALLS) continue;
             current_bowler = candidate;
             break;
         }

@@ -137,25 +137,25 @@ int main() {
 
     join_all_threads();
     print_innings_summary("Second Innings End");
-    print_gantt_chart();
 
     destroy_pitch();
 
     Logger::section("Match Result");
 
-        if (global_score >= target_score) {
-            Logger::log(
-                "Team 2 WON by " + to_string(10 - wickets_fallen) + " wickets",
-                "RESULT"
-            );
-        } else {
-            int margin = target_score - global_score - 1;
-            Logger::log(
-                "Team 1 WON by " + to_string(margin) + " runs",
-                "RESULT"
-            );
-        }
+    if (global_score >= target_score) {
+        Logger::log(
+            "Team 2 WON by " + to_string(10 - wickets_fallen) + " wickets",
+            "RESULT"
+        );
+    } else {
+        int margin = target_score - global_score - 1;
+        Logger::log(
+            "Team 1 WON by " + to_string(margin) + " runs",
+            "RESULT"
+        );
+    }
 
+    print_gantt_chart();
     Logger::close();
 
     return 0;

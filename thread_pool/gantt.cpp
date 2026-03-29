@@ -129,8 +129,8 @@ void print_gantt_chart() {
         cout << border << "\n";
         print_row("Ball", gantt_log, start, end, "ball");
         print_row("Bowler", gantt_log, start, end, "bowler");
-        print_row("Batsman 1", gantt_log, start, end, "bat1", &slot1_active, nullptr);
-        print_row("Batsman 2", gantt_log, start, end, "bat2", nullptr, &slot2_active);
+        print_row("BTM 1", gantt_log, start, end, "bat1", &slot1_active, nullptr);
+        print_row("BTM 2", gantt_log, start, end, "bat2", nullptr, &slot2_active);
         cout << border << "\n";
 
     }
