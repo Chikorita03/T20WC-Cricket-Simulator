@@ -377,10 +377,54 @@ void* batsman_thread(void* arg) {
         }
 
         if (current_event.ball_in_air) {
+            // === ZONE SYSTEM: compute angle, sector, weighted owner ===
             pthread_mutex_lock(&fielder_mutex);
-            ball_active = true;
+
+            shot_angle  = rand() % 360;
+            shot_sector = shot_angle / 45;   // 0–7
+
+            // Apply handedness flip for left-handers
+            // batsman_hand[id] == 1 means left-handed
+            if (batsman_hand[id] == 1) {
+                shot_sector = (shot_sector + 4) % 8;
+            }
+
+            // Weighted selection: primary=70, adj-left=15, adj-right=15
+            int primary   = shot_sector;
+            int adj_left  = (shot_sector + 7) % 8;
+            int adj_right = (shot_sector + 1) % 8;
+
+            int weights[3] = {70, 15, 15};
+            int candidates[3] = {primary, adj_left, adj_right};
+
+            // Map sector → fielder id (fielders 1–9, keeper=separate)
+            // Sector 0–7 maps to fielder ids 1–8; sector maps 1:1 here
+            // Adjust if your fielder numbering differs
+            int r = rand() % 100;
+            int chosen_sector;
+            if (r < 70)       chosen_sector = candidates[0];
+            else if (r < 85)  chosen_sector = candidates[1];
+            else              chosen_sector = candidates[2];
+
+            vector<int>& options = sector_to_fielders[chosen_sector];
+            ball_owner = options[rand() % options.size()];
+            ball_stopped=false;
+            ball_active        = true;
+            
+
+            // === COMMENTARY ===
+            Logger::log(
+                "[Batsman " + to_string(my_id) + "] hits to " +
+                string(sector_name[chosen_sector]) +
+                " for " + to_string(current_event.base_runs) + " run(s)",
+                "BATTING"
+            );
+
             pthread_cond_broadcast(&fielder_wake_cond);
-            while ((!ball_stopped || !keeper_done) && match_running) {
+            pthread_mutex_unlock(&fielder_mutex);
+
+            pthread_mutex_lock(&fielder_mutex);
+            while (!ball_stopped && match_running) {
                 pthread_cond_wait(&fielder_wake_cond, &fielder_mutex);
             }
             pthread_mutex_unlock(&fielder_mutex);
@@ -602,12 +646,6 @@ void* batsman_thread(void* arg) {
 
             pthread_cond_broadcast(&ball_delivered);
 
-            if (current_event.ball_in_air) {
-                pthread_mutex_lock(&fielder_mutex);
-                ball_active = false;
-                pthread_cond_broadcast(&fielder_wake_cond);
-                pthread_mutex_unlock(&fielder_mutex);
-            }
 
             pthread_mutex_lock(&pitch_mutex);
             stroke_done = true;
@@ -650,13 +688,6 @@ void* batsman_thread(void* arg) {
             Logger::log("[MATCH] Target chased successfully!", "SYSTEM");
             match_running = false;
 
-            if (current_event.ball_in_air) {
-                pthread_mutex_lock(&fielder_mutex);
-                ball_active = false;
-                pthread_cond_broadcast(&fielder_wake_cond);
-                pthread_mutex_unlock(&fielder_mutex);
-            }
-
             pthread_mutex_lock(&pitch_mutex);
             stroke_done = true;
             pthread_cond_signal(&stroke_finished);
@@ -670,13 +701,6 @@ void* batsman_thread(void* arg) {
             striker     = non_striker;
             non_striker = tmp;
             pthread_mutex_unlock(&score_mutex);
-        }
-
-        if (current_event.ball_in_air) {
-            pthread_mutex_lock(&fielder_mutex);
-            ball_active = false;
-            pthread_cond_broadcast(&fielder_wake_cond);
-            pthread_mutex_unlock(&fielder_mutex);
         }
 
         pthread_mutex_lock(&pitch_mutex);
@@ -710,7 +734,7 @@ void* fielder_thread(void* arg) {
     while (match_running) {
         pthread_mutex_lock(&fielder_mutex);
 
-        while (!ball_active && match_running) {
+        while (match_running && !(ball_active && ball_owner == id)) {
             pthread_cond_wait(&fielder_wake_cond, &fielder_mutex);
         }
 
@@ -719,27 +743,19 @@ void* fielder_thread(void* arg) {
             break;
         }
 
-        // Race to claim ball — exclude STUMPED (keeper's job)
-        if (!ball_stopped && ball_owner == -1 && current_event.wicket != STUMPED) {
-            ball_owner = id;
-            int dist = 5 + (int)(rand_r(&rseed) % 55);
+        ball_active = false;
+        pthread_mutex_unlock(&fielder_mutex);
 
-            if(current_event.wicket==CAUGHT)
-                Logger::log("[Fielder "+to_string(id)+"] CAUGHT! Ball safely held.","FIELDER");
-            else
-                Logger::log(
-                    "[Fielder "+to_string(id)+"] Stopped ball at "+to_string(dist)+"m",
-                    "FIELDER"
-                );
-            ball_stopped = true;
-            pthread_cond_broadcast(&fielder_wake_cond);
-        }
+        // Simulate fielding
+        Logger::log(
+            "[Fielder " + to_string(id) + "] collects the ball",
+            "FIELDER"
+        );
 
-        // Wait until this ball cycle ends
-        while (ball_active && match_running) {
-            pthread_cond_wait(&fielder_wake_cond, &fielder_mutex);
-        }
-
+        // Mark ball stopped
+        pthread_mutex_lock(&fielder_mutex);
+        ball_stopped = true;
+        pthread_cond_broadcast(&fielder_wake_cond);
         pthread_mutex_unlock(&fielder_mutex);
     }
     return NULL;

@@ -31,6 +31,30 @@ bool is_running     = false;
 bool wicket_attempt = false;
 
 int  ball_owner     = -1;
+int  shot_angle  = 0;
+int  shot_sector = 0;
+
+vector<int> sector_to_fielders[8] = {
+    {6},        // fine leg
+    {7,5},      // square leg (2 fielders)
+    {5},        // mid-wicket
+    {4},        // long on
+    {9},        // long off
+    {2,3},      // cover/point (2 fielders)
+    {3},        // point
+    {1}         // third man
+};
+
+const char* sector_name[8] = {
+    "fine leg",
+    "square leg",
+    "mid-wicket",
+    "long on",
+    "long off",
+    "cover",
+    "point",
+    "third man"
+};
 int  backup_fielder = -1;
 bool ball_stopped   = false;
 
@@ -60,6 +84,26 @@ int extras_leg_byes = 0;
 
 pthread_mutex_t end1_mutex;   // Striker's crease
 pthread_mutex_t end2_mutex;   // Non-striker's crease
+
+int batsman_hand[12] = {
+    0, // unused index 0
+
+    0, // 1 - Right
+    1, // 2 - Left
+
+    0, // 3
+    0, // 4
+    1, // 5
+
+    0, // 6
+    1, // 7
+    1, // 8
+
+    0, // 9
+    0, // 10
+    0  // 11
+};
+    
 
 int striker_dist_run = 0;
 int nonstriker_dist_run = 0;
@@ -424,6 +468,9 @@ void reset_for_second_innings() {
     boundary = false;
     is_running = false;
     wicket_attempt = false;
+
+    shot_angle           = 0;
+    shot_sector          = 0;
 
     striker = 1;
     non_striker = 2;

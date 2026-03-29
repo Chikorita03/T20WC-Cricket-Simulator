@@ -5,6 +5,8 @@
 #include <vector>
 #include <functional>
 
+using namespace std;
+
 enum WicketType {
     NONE,
     BOWLED,
@@ -52,6 +54,11 @@ extern int  backup_fielder;
 extern bool ball_stopped;
 
 extern bool ball_active;
+extern int  shot_angle;
+extern int  shot_sector;
+extern vector<int> sector_to_fielders[8];
+extern const char* sector_name[8];
+extern int batsman_hand[12];
 extern bool keeper_done;
 
 extern int  global_score;
