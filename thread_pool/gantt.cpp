@@ -47,7 +47,7 @@ static void print_row(
     cout << "|\n";
 }
 
-// LOG PER BALL
+// log per ball
 void log_gantt(int ball, int bowler, int striker, int non_striker) {
 
     pthread_mutex_lock(&gantt_mutex);
@@ -58,11 +58,10 @@ void log_gantt(int ball, int bowler, int striker, int non_striker) {
         striker,
         non_striker
     });
-
     pthread_mutex_unlock(&gantt_mutex);
 }
 
-// PRINT CLEAN GRID
+// print clean grid
 void print_gantt_chart() {
     pthread_mutex_lock(&gantt_mutex);
 
@@ -86,8 +85,7 @@ void print_gantt_chart() {
         const int striker = gantt_log[i].striker;
         const int non_striker = gantt_log[i].non_striker;
 
-        // Keep two persistent batting slots. If a new batsman appears (wicket),
-        // replace only the slot that no longer matches the current pair.
+        // keep two persistent batting slots. If a new batsman appears (wicket), replace only the slot that no longer matches the current pair.
         const bool striker_in_slots = (striker == slot1 || striker == slot2);
         const bool non_striker_in_slots = (non_striker == slot1 || non_striker == slot2);
 
@@ -103,14 +101,14 @@ void print_gantt_chart() {
             slot1 = non_striker;
         }
 
-        // Fallback if both changed unexpectedly.
+        // fallback if both changed unexpectedly.
         if ((striker != slot1 && striker != slot2) ||
             (non_striker != slot1 && non_striker != slot2)) {
             slot1 = striker;
             slot2 = non_striker;
         }
 
-        // Only striker's slot is shown as active for this ball.
+        // only striker's slot is shown as active for this ball.
         if (striker == slot1) {
             slot1_active[i] = slot1;
             slot2_active[i] = 0;

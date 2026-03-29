@@ -4,12 +4,11 @@
 #include <sstream>
 #include <ctime>
 
-// ===== Static member definitions =====
+// static member definitions 
 std::ofstream   Logger::file_;
 pthread_mutex_t Logger::mutex_  = PTHREAD_MUTEX_INITIALIZER;
 bool            Logger::initialized_ = false;
 
-// ─────────────────────────────────────
 void Logger::init(const std::string& filename) {
     pthread_mutex_lock(&mutex_);
 
@@ -28,7 +27,6 @@ void Logger::init(const std::string& filename) {
     pthread_mutex_unlock(&mutex_);
 }
 
-// ─────────────────────────────────────
 void Logger::close() {
     pthread_mutex_lock(&mutex_);
 
@@ -43,11 +41,9 @@ void Logger::close() {
     pthread_mutex_unlock(&mutex_);
 }
 
-// ─────────────────────────────────────
 void Logger::log(const std::string& message, const std::string& tag) {
     pthread_mutex_lock(&mutex_);
 
-    // Build formatted line: [HH:MM:SS.mmm][TAG] message
     std::ostringstream line;
     line << "[" << timestamp() << "]";
     if (!tag.empty()) {
@@ -59,10 +55,10 @@ void Logger::log(const std::string& message, const std::string& tag) {
 
     std::string formatted = line.str();
 
-    // Write to console (matches your existing output exactly)
+    // write to console 
     std::cout << message << std::endl;
 
-    // Write richer formatted line to log file
+    // write richer formatted line to log file
     if (initialized_ && file_.is_open()) {
         file_ << formatted << "\n";
         file_.flush();   // flush every line so log is readable mid-match
@@ -71,7 +67,6 @@ void Logger::log(const std::string& message, const std::string& tag) {
     pthread_mutex_unlock(&mutex_);
 }
 
-// ─────────────────────────────────────
 void Logger::section(const std::string& title) {
     pthread_mutex_lock(&mutex_);
 
@@ -90,7 +85,6 @@ void Logger::section(const std::string& title) {
     pthread_mutex_unlock(&mutex_);
 }
 
-// ─────────────────────────────────────
 std::string Logger::timestamp() {
     struct timespec ts;
     clock_gettime(CLOCK_REALTIME, &ts);

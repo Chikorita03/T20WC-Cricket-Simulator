@@ -63,7 +63,6 @@ static void log_pitch_ball_completed(int balls_after, int wickets_after) {
 
 static void log_chase_requirement(int balls_after, int score_after) {
     if (innings != 2) return;
-
     int balls_left = 120 - balls_after;
     int runs_needed = target_score - score_after;
     if (balls_left < 0) balls_left = 0;
@@ -109,19 +108,16 @@ const char* wicket_name(int wt) {
     }
 }
 
-// =============================================================
 // decide_lbw()
-//   Simulates umpire deliberation for an LBW appeal.
-//
-//   OS analogy: This is a deferred interrupt handler — the
+//   simulates umpire deliberation for an LBW appeal.
+//   This is a deferred interrupt handler — the
 //   initial signal (LBW) is raised, but the kernel (umpire)
 //   evaluates it asynchronously before committing to a state
 //   change (dismissal).  ~60% probability of OUT mirrors a
 //   real umpire's bias toward upholding clear-cut appeals.
-//
-//   Returns true  → batsman is OUT
+//   returns true  → batsman is OUT
 //           false → NOT OUT, wicket cancelled
-// =============================================================
+
 bool decide_lbw() {
     Logger::log("[Umpire] Considering LBW appeal...", "UMPIRE");
 
@@ -135,12 +131,10 @@ bool decide_lbw() {
     return out;
 }
 
-// =============================================================
 // bowler_thread()
-//   Producer thread: generates a BallEvent each iteration,
-//   validates dismissal legality via validate_wicket(), then
-//   signals batsman threads (consumers) via condition variable.
-// =============================================================
+//   producer thread: generates a BallEvent each iteration,
+//   validates dismissal legality via validate_wicket(), then signals batsman threads via condition variable.
+
 void* bowler_thread(void* arg) {
     while (match_running) {
         bool innings_finished = false;
@@ -151,7 +145,7 @@ void* bowler_thread(void* arg) {
             break;
         }
 
-        // ===== PRINT HEADER ONCE PER BALL =====
+        // print header once per ball
         int over = balls_bowled / 6;
         int ball = balls_bowled % 6 + 1;
 
@@ -167,13 +161,13 @@ void* bowler_thread(void* arg) {
             }
             retry_count++;
 
-            // ---- Generate raw ball event ----
+            // generate raw ball event 
             current_event = generate_event();
 
-            // ---- Enforce wicket rules (NO BALL / FREE HIT guard) ----
+            // enforce wicket rules (NO BALL / FREE HIT guard)
             validate_wicket(current_event);
 
-            // ===== SAFETY: prevent infinite loop =====
+            // safety: prevent infinite loop 
             if (retry_count > 8) {
                 current_event.is_wide = false;
                 current_event.is_no_ball = false;
@@ -227,7 +221,7 @@ void* bowler_thread(void* arg) {
 
                 if (!current_event.is_wide && !current_event.is_no_ball) {
 
-                    // ===== RR SCHEDULING: Update Bowler PCB =====
+                    // RR scheduling: update bowler PCB
                     int b = get_current_bowler();
 
                     bowlers[b].balls_bowled++;
@@ -236,9 +230,7 @@ void* bowler_thread(void* arg) {
                     if (current_event.wicket != NONE) {
                         bowlers[b].wickets++;
                     }
-
                     balls_bowled++; 
-
                 }
                 
                 log_pitch_ball_completed(balls_bowled, wickets_fallen);
@@ -303,19 +295,18 @@ void* bowler_thread(void* arg) {
     return NULL;
 }
 
-// =============================================================
 // batsman_thread()
-//   Consumer thread: waits for a ball, plays the stroke, then
+//   consumer thread: waits for a ball, plays the stroke, then
 //   handles run scoring, wicket outcomes, and striker rotation.
 //
 //   LBW special path:
-//     1. Print appeal message (already printed by print block).
-//     2. Call decide_lbw() — deferred umpire decision.
-//     3. If NOT OUT → cancel wicket so normal run logic runs.
-// =============================================================
+//     1. print appeal message (already printed by print block).
+//     2. call decide_lbw() — deferred umpire decision.
+//     3. if NOT OUT - cancel wicket so normal run logic runs.
+
 void* batsman_thread(void* arg) {
     int id = *(int*)arg;
-    int my_id = id;   // dynamic id (IMPORTANT)
+    int my_id = id;   // dynamic id 
 
     sem_wait(&crease_sem);   // batsman enters crease
 
@@ -354,8 +345,8 @@ void* batsman_thread(void* arg) {
 
         Logger::log(msg1,"BATSMAN");
 
-        // ===== LBW: deferred umpire decision =====
-        // Must happen before we release pitch_mutex so that
+        // LBW: deferred umpire decision
+        // must happen before we release pitch_mutex so that
         //  state is resolved before fielder/keeper wake.
         if (current_event.wicket == LBW) {
             bool lbw_out = decide_lbw();
@@ -364,11 +355,10 @@ void* batsman_thread(void* arg) {
                 current_event.wicket    = NONE;
                 current_event.base_runs = 0;
             }
-            // If OUT, current_event.wicket stays LBW and the
-            // normal wicket-processing block below handles it.
+            // If OUT, current_event.wicket stays LBW and the normal wicket-processing block below handles it.
         }
 
-        // ===== WAITING TIME: First execution =====
+        // waiting time: first execution 
         if (!has_started[my_id]) {
             start_time[my_id] = balls_bowled;
             waiting_time[my_id] = start_time[my_id] - arrival_time[my_id];
@@ -377,7 +367,7 @@ void* batsman_thread(void* arg) {
 
         pthread_mutex_unlock(&pitch_mutex);
 
-        // ===== STUMPED: wait for keeper confirmation =====
+        // stumped: wait for keeper confirmation
         if (current_event.wicket == STUMPED) {
             pthread_mutex_lock(&fielder_mutex);
             while (!keeper_done && match_running) {
@@ -387,19 +377,19 @@ void* batsman_thread(void* arg) {
         }
 
         if (current_event.ball_in_air) {
-            // === ZONE SYSTEM: compute angle, sector, weighted owner ===
+            // zone system: compute angle, sector, weighted owner
             pthread_mutex_lock(&fielder_mutex);
 
             shot_angle  = rand() % 360;
             shot_sector = shot_angle / 45;   // 0–7
 
-            // Apply handedness flip for left-handers
+            // apply handedness flip for left-handers
             // batsman_hand[id] == 1 means left-handed
             if (batsman_hand[id] == 1) {
                 shot_sector = (shot_sector + 4) % 8;
             }
 
-            // Weighted selection: primary=70, adj-left=15, adj-right=15
+            // weighted selection: primary=70, adj-left=15, adj-right=15
             int primary   = shot_sector;
             int adj_left  = (shot_sector + 7) % 8;
             int adj_right = (shot_sector + 1) % 8;
@@ -407,9 +397,9 @@ void* batsman_thread(void* arg) {
             int weights[3] = {70, 15, 15};
             int candidates[3] = {primary, adj_left, adj_right};
 
-            // Map sector → fielder id (fielders 1–9, keeper=separate)
-            // Sector 0–7 maps to fielder ids 1–8; sector maps 1:1 here
-            // Adjust if your fielder numbering differs
+            // map sector → fielder id (fielders 1–9, keeper=separate)
+            // sector 0–7 maps to fielder ids 1–8; sector maps 1:1 here
+            // adjust if your fielder numbering differs
             int r = rand() % 100;
             int chosen_sector;
             if (r < 70)       chosen_sector = candidates[0];
@@ -422,7 +412,7 @@ void* batsman_thread(void* arg) {
             ball_active        = true;
             
 
-            // === COMMENTARY ===
+            // commentary
             Logger::log(
                 "[Batsman " + to_string(my_id) + "] hits to " +
                 string(sector_name[chosen_sector]) +
@@ -507,7 +497,7 @@ void* batsman_thread(void* arg) {
             pthread_mutex_lock(&score_mutex);
             wickets_fallen++;
             pthread_mutex_unlock(&score_mutex);
-            // ===== STOP MATCH IF ALL OUT =====
+            // stop match if all out
                 if (wickets_fallen == 10){
                     if (innings == 1)
                         Logger::log("[MATCH] Innings 1 complete!", "SYSTEM");
@@ -530,7 +520,7 @@ void* batsman_thread(void* arg) {
                 record_extras(current_event);
                 update_score(total_runs);
 
-                // ===== 2ND INNINGS: TARGET CHASE CHECK =====
+                // 2nd innings: traget chase check
                 if (innings == 2 && global_score >= target_score) {
                     log_pitch_ball_completed(balls_bowled, wickets_fallen);
                     log_chase_requirement(balls_bowled, read_global_score());
@@ -551,16 +541,14 @@ void* batsman_thread(void* arg) {
                 log_chase_requirement(balls_bowled, read_global_score());
 
                 match_running = false;
-
                 pthread_mutex_lock(&pitch_mutex);
                 stroke_done = true;
                 pthread_cond_signal(&stroke_finished);
                 pthread_mutex_unlock(&pitch_mutex);
-
                 break;
             }
 
-            // Wake all threads safely
+            // wake all threads safely
             if (!match_running) {
                 stop_match();
 
@@ -571,22 +559,20 @@ void* batsman_thread(void* arg) {
             }
             
             if (!match_running) {
-
                 stop_match();
-
                 pthread_mutex_lock(&pitch_mutex);
                 stroke_done = true;
                 pthread_cond_signal(&stroke_finished);
                 pthread_mutex_unlock(&pitch_mutex);
 
-                continue;   // IMPORTANT: exit thread cleanly
+                continue;  
             }
 
-            // ===== ONLY IF MATCH CONTINUES → CREATE NEW BATSMAN =====
+            // only if match continues - create new batsman
             
             int new_id=0;
 
-            // ===== TOP ORDER (Batsman 3) =====
+            // top order(batsman 3) 
             if (!batsman3_used) {
                 new_id = 3;
                 batsman3_used = true;
@@ -596,7 +582,7 @@ void* batsman_thread(void* arg) {
                 Logger::log("[FIXED] Batsman 3 comes in (Top order)", "SCHED");
             } else {
 
-            // ===== HYBRID ORDER: FIXED + SCHEDULER =====
+            // hybrid order: fixed+scheduler
             if (use_sjf) {
 
                 if (!batting_order_sjf.empty()) {
@@ -636,7 +622,7 @@ void* batsman_thread(void* arg) {
                 }
             }
         }
-        // ===== WAITING TIME: Arrival =====
+        // waiting time: arrival
             if (arrival_time[new_id] == -1){
                 arrival_time[new_id] = balls_bowled;
             }
@@ -721,19 +707,13 @@ void* batsman_thread(void* arg) {
     return NULL;
 }
 
-// =============================================================
 // fielder_thread()
-//   Condition-variable sleeping thread (consumer-side helper).
 //   Wakes on ball_active, races to claim the ball.
 //
 //   CAUGHT handling:
-//     A fielder who grabs a CAUGHT ball sets ball_stopped = true,
-//     which is the signal batsman_thread waits on.  The wicket
-//     itself was already set in generate_event(); the fielder
-//     only needs to confirm ball possession.
-//
-//   STUMPED is explicitly excluded (wicket_keeper handles it).
-// =============================================================
+//     a fielder who grabs a CAUGHT ball sets ball_stopped = true, which is the signal batsman_thread waits on. The wicket
+//     itself was already set in generate_event(); so the fielder only needs to confirm ball possession.
+
 void* fielder_thread(void* arg) {
     int id = *(int*)arg;
     unsigned int rseed = (unsigned)(time(NULL) + id * 7919u)
@@ -756,13 +736,13 @@ void* fielder_thread(void* arg) {
         ball_active = false;
         pthread_mutex_unlock(&fielder_mutex);
 
-        // Simulate fielding
+        // simulate fielding
         Logger::log(
             "[Fielder " + to_string(id) + "] collects the ball",
             "FIELDER"
         );
 
-        // Mark ball stopped
+        // mark ball stopped
         pthread_mutex_lock(&fielder_mutex);
         ball_stopped = true;
         pthread_cond_broadcast(&fielder_wake_cond);
@@ -771,15 +751,11 @@ void* fielder_thread(void* arg) {
     return NULL;
 }
 
-// ============================================================
 // wicket_keeper_thread()
-//   Handles STUMPED dismissals exclusively.
-//
-//   OS analogy: dedicated interrupt handler for a specific
-//   interrupt vector (STUMPED).  It only acts if the ball has
-//   not already been claimed (ball_stopped == false), preventing
-//   a race with fielders.
-// ============================================================
+//   handles stumped dismissals exclusively.
+//   dedicated interrupt handler for a specific interrupt vector (STUMPED).  It only acts if the ball has
+//   not already been claimed (ball_stopped == false), preventing a race with fielders.
+
 void* wicket_keeper_thread(void* arg) {
     while (match_running) {
         pthread_mutex_lock(&fielder_mutex);
@@ -794,9 +770,7 @@ void* wicket_keeper_thread(void* arg) {
         }
 
         if (current_event.wicket == STUMPED) {
-            // STUMPED: keeper acts only if ball not already stopped
-            // (guards against a fielder accidentally claiming the ball
-            //  when wicket == STUMPED, which fielder_thread now prevents)
+            // stumped: keeper acts only if ball not already stopped (guards against a fielder accidentally claiming the ball when wicket == STUMPED, which fielder_thread now prevents)
             if (!ball_stopped) {
                 Logger::log("[Keeper] STUMPED!","KEEPER");
 
@@ -805,7 +779,7 @@ void* wicket_keeper_thread(void* arg) {
                 pthread_cond_broadcast(&fielder_wake_cond);
             }
         } else {
-            // Non-stumped ball: keeper receives safely if no fielder got it
+            // non-stumped ball: keeper receives safely if no fielder got it
             if (ball_owner == -1 && !ball_stopped) {
                 Logger::log("[Keeper] Ball safely in gloves","KEEPER");
             }

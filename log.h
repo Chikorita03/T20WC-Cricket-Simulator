@@ -3,34 +3,22 @@
 #include <string>
 #include <pthread.h>
 
-// ===================================================
-// Logger — thread-safe dual output (cout + log file)
-// ===================================================
-// Usage:
-//   Logger::log("[Bowler] Delivering ball 5");
-//   Logger::log("[Batsman 1] SIX!", "BATSMAN");
-//
-// Drop-in replacement for:
-//   pthread_mutex_lock(&print_mutex);
-//   cout << "..." << endl;
-//   pthread_mutex_unlock(&print_mutex);
-// becomes:
-//   Logger::log("...");
-// ===================================================
+// logger — thread-safe dual output (cout + log file)
+// logger::log("[Bowler] Delivering ball 5");
+// logger::log("[Batsman 1] SIX!", "BATSMAN");
 
 class Logger {
 public:
-    // Call once at startup (before threads are created)
+    // call once at startup (before threads are created)
     static void init(const std::string& filename = "log.txt");
 
-    // Call once at shutdown (after threads are joined)
+    // call once at shutdown (after threads are joined)
     static void close();
 
-    // Thread-safe log — writes to both cout and log file
-    // tag is optional context label (e.g. "BOWLER", "BATSMAN", "FIELDER")
+    // thread-safe log — writes to both cout and log file
     static void log(const std::string& message, const std::string& tag = "");
 
-    // Log a section separator (makes log easier to scan)
+    // log a section separator (makes log easier to scan)
     static void section(const std::string& title);
 
 private:
