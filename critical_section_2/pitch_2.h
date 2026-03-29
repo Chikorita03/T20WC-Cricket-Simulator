@@ -81,20 +81,20 @@ extern int nonstriker_dist_run;
 
 extern int expected_balls[12];
 
-// scheduling mode
+//scheduling mode
 extern bool use_sjf;
 
-// FCFS queue
+//FCFS queue
 extern std::queue<int> batting_order_fcfs;
 
-// SJF priority queue 
+//SJF priority queue 
 extern std::priority_queue<
     std::pair<int,int>,
     std::vector<std::pair<int,int>>,
     std::greater<std::pair<int,int>>
 > batting_order_sjf;
 
-// waiting time analysis
+//waiting time analysis
 extern int arrival_time[20];
 extern int start_time[20];
 extern int waiting_time[20];
@@ -104,9 +104,9 @@ extern int runs_scored[20];
 extern int completion_time[20];
 extern int turnaround_time[20];
 
-extern int innings;              // 1 or 2
-extern int target_score;         // score to chase
-extern bool innings_break;       // pause between innings
+extern int innings;              //1 or 2
+extern int target_score;         //score to chase
+extern bool innings_break;       //pause between innings
 
 extern float required_run_rate;  
 extern float current_run_rate;
@@ -123,6 +123,6 @@ void stop_match();
 BallEvent generate_event();
 void reset_for_second_innings();
 
-// wicket validation:
-// enforces dismissal legality based on delivery type and must be called by bowler_thread() after generate_event().
+//wicket validation:
+//enforces dismissal legality based on delivery type and must be called by bowler_thread() after generate_event().
 void validate_wicket(BallEvent &ev);

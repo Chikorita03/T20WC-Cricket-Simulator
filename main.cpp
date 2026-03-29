@@ -122,16 +122,16 @@ int main() {
     print_gantt_chart();
     clear_gantt_chart();
 
-    // start second innings
+    //start second innings
     reset_for_second_innings();
     create_all_threads();
 
-    // second innings
+    //second innings
     while (match_running) {
         usleep(10000);
     }
 
-    // final stop
+    //final stop
     match_running = false;
     stop_match();
 

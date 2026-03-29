@@ -5,7 +5,7 @@
 using namespace std;
 
 struct GanttEvent {
-    int ball;          // ball index (1–120)
+    int ball; 
     int bowler;
     int striker;
     int non_striker;

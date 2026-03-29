@@ -35,14 +35,14 @@ int  shot_angle = 0;
 int  shot_sector = 0;
 
 vector<int> sector_to_fielders[8] = {
-    {6},        // fine leg
-    {7,5},      // square leg (2 fielders)
-    {5},        // mid-wicket
-    {4},        // long on
-    {9},        // long off
-    {2,3},      // cover/point (2 fielders)
-    {3},        // point
-    {1}         // third man
+    {6},        //fine leg
+    {7,5},      //square leg (2 fielders)
+    {5},        //mid-wicket
+    {4},        //long on
+    {9},        //long off
+    {2,3},      //cover/point (2 fielders)
+    {3},        //point
+    {1}         //third man
 };
 
 const char* sector_name[8] = {
@@ -82,26 +82,26 @@ int extras_no_balls = 0;
 int extras_byes = 0;
 int extras_leg_byes = 0;
 
-pthread_mutex_t end1_mutex;   // Striker's crease
-pthread_mutex_t end2_mutex;   // Non-striker's crease
+pthread_mutex_t end1_mutex; //striker's crease
+pthread_mutex_t end2_mutex; //non-striker's crease
 
 int batsman_hand[12] = {
-    0, // unused index 0
+    0, //unused index 0
 
-    0, // 1-Right
-    1, // 2-Left
+    0, //1-Right
+    1, //2-Left
 
-    0, // 3
-    0, // 4
-    1, // 5
+    0, //3
+    0, //4
+    1, //5
 
-    0, // 6
-    1, // 7
-    1, // 8
+    0, //6
+    1, //7
+    1, //8
 
-    0, // 9
-    0, // 10
-    0  // 11
+    0, //9
+    0, //10
+    0  //11
 };
     
 
@@ -113,15 +113,11 @@ bool nonstriker_mid_pitch = false;
 
 int expected_balls[12];
 
-// scheduling mode 
-bool use_sjf = false;   // set to true for SJF, false for FCFS
-
-// batting orders
 queue<int> batting_order_fcfs;
 
 priority_queue< pair<int,int>, vector<pair<int,int>>, greater<pair<int,int>>> batting_order_sjf;
 
-// waiting time tracking
+//stats tracking for FCFS and SJF
 int arrival_time[20];
 int start_time[20];
 int waiting_time[20];
@@ -135,7 +131,6 @@ int turnaround_time[20];
 void init_pitch() {
     srand(time(NULL) ^ getpid());
 
-    // initialize waiting time arrays 
     for (int i = 0; i < 20; i++) {
     arrival_time[i] = -1;
     start_time[i] = -1;
@@ -155,19 +150,19 @@ void init_pitch() {
     extras_byes = 0;
     extras_leg_byes = 0;
 
-    pthread_mutex_init(&pitch_mutex,   NULL);
-    pthread_mutex_init(&print_mutex,   NULL);
-    pthread_mutex_init(&score_mutex,   NULL);
+    pthread_mutex_init(&pitch_mutex, NULL);
+    pthread_mutex_init(&print_mutex, NULL);
+    pthread_mutex_init(&score_mutex, NULL);
     pthread_mutex_init(&fielder_mutex, NULL);
 
     pthread_mutex_init(&end1_mutex, NULL);
     pthread_mutex_init(&end2_mutex, NULL);
 
-    pthread_cond_init(&ball_delivered,    NULL);
-    pthread_cond_init(&stroke_finished,   NULL);
+    pthread_cond_init(&ball_delivered, NULL);
+    pthread_cond_init(&stroke_finished, NULL);
     pthread_cond_init(&fielder_wake_cond, NULL);
 
-    sem_init(&crease_sem, 0, 2);   // only 2 batsmen allowed
+    sem_init(&crease_sem, 0, 2); //only 2 batsmen allowed
 }
 
 void destroy_pitch() {
@@ -220,49 +215,31 @@ static int random_running_runs() {
     int r = rand() % 100;
     if (r < 35) return 1;
     else if (r < 65) return 2;
-    else             return 3;
+    else return 3;
 }
 
-// =============================================================
-// validate_wicket()
-//   this is a policy gate-like an interrupt
-//   handler deciding whether a signal is valid for the current
-//   CPU state. The "NO BALL / FREE HIT" check maps to a
-//   protected-mode restriction: only a specific operation
-//   (RUN_OUT) is permitted in those special states.
-//
-//   rules:
-//     - NO BALL → only RUN_OUT is valid; cancel everything else
-//     - FREE HIT → only RUN_OUT is valid; cancel everything else
-//     - Normal → bowled, caught, LBW, stumped are valid;
-//                also cancel any stray RUN_OUT (run-out is
-//                handled separately via deadlock logic)
-// =============================================================
+// This function enforces the rules around when wickets can occur, based on the type of delivery and the current free hit status.
 void validate_wicket(BallEvent &ev) {
     if (ev.is_no_ball || ev.is_free_hit) {
-        // only RUN_OUT may dismiss on no-ball / free-hit.
-        // all other wickets are invalid-cancel them.
+        //on no-ball and free hit, only RUN_OUT is valid
         if (ev.wicket != RUN_OUT) {
             ev.wicket = NONE;
         }
         return;
     }
 
-    // normal delivery: RUN_OUT is handled by deadlock module —
-    // remove it here so we never double-process it.
     if (ev.wicket == RUN_OUT) {
         ev.wicket = NONE;
     }
 
-    // bowled, caught, LBW, stumped are accepted as-is.
-    // (LBW will still pass through; the final out/not-out
-    // decision is deferred to decide_lbw() in batsman_thread.)
+    //bowled, caught, LBW, stumped are accepted as-is.
+    //(LBW will still pass through; the final out/not-out decision is deferred to decide_lbw() in batsman_thread.)
 }
 
 int get_batsman_type(int id) {
-    if (id <= 3) return 0;        // openers
-    else if (id <= 8) return 1;   // middle
-    else return 2;                // tail
+    if (id <= 3) return 0;        //openers
+    else if (id <= 8) return 1;   //middle
+    else return 2;                //tail
 }
 
 BallEvent generate_event() {
@@ -283,9 +260,9 @@ BallEvent generate_event() {
     bool force_wide = false;
 
     if (!ev.is_free_hit) {
-        if      (t < 95) { }
+        if (t < 95) { }
         else if (t < 98) { force_wide = true; }
-        else             { force_no_ball = true; }
+        else { force_no_ball = true; }
     }
 
     if (force_no_ball && force_wide) {
@@ -304,7 +281,7 @@ BallEvent generate_event() {
 
         if (!ev.is_boundary && ev.base_runs > 0)
             ev.ball_in_air = true;
-        // no wicket can occur on no-ball except RUN_OUT — validate_wicket() will enforce this, so we leave ev.wicket = NONE here (no RUN_OUT generation).
+        //no wicket can occur on no-ball except RUN_OUT
         
         ev.is_free_hit = free_hit_pending;
 
@@ -347,23 +324,20 @@ BallEvent generate_event() {
         if (!ev.is_boundary && ev.base_runs > 0)
             ev.ball_in_air = true;
 
-        // RUN_OUT on no-ball is handled by deadlock module—not generated here.
+        //RUN_OUT on no-ball is handled by deadlock module—not generated here.
         return ev;
     }
 
     free_hit_pending = false;
 
-    // player-aware distribution
     int batsman_type;
 
-    // classify batsman using striker
-    if (striker <= 3) batsman_type = 0;  // openers
-    else if (striker <= 8) batsman_type = 1;   // middle
-    else batsman_type = 2;  // tail
+    if (striker <= 3) batsman_type = 0; //openers
+    else if (striker <= 8) batsman_type = 1; //middle
+    else batsman_type = 2; //tail
 
     int x = rand() % 100;
 
-    // openers
     if (batsman_type == 0) 
     {
         if (x < 30) ev.base_runs = 0;
@@ -379,7 +353,6 @@ BallEvent generate_event() {
         }
     }
 
-    // middle order
     else if (batsman_type == 1) 
     {
         if (x < 34) ev.base_runs = 0;
@@ -398,7 +371,6 @@ BallEvent generate_event() {
         }
     }
 
-    // tailenders
     else 
     {
         if (x < 45) ev.base_runs = 0;
@@ -414,14 +386,13 @@ BallEvent generate_event() {
         }
     }
 
-    // ball in air logic
+    //ball in air logic
     if (!ev.is_boundary && ev.wicket == NONE && ev.base_runs > 0) {
         ev.ball_in_air = true;
     }
 
     if (ev.is_free_hit) {
-        // on free hit only RUN_OUT is valid — deadlock module handles it;
-        // do not generate any wicket here.
+        //on free hit only wicket due to RUN_OUT is valid 
         return ev;
     }
 
@@ -448,7 +419,7 @@ void reset_for_second_innings() {
         "SYSTEM"
     );
 
-    // reset match state
+    //reset match state for 2nd innings
     global_score = 0;
     balls_bowled = 0;
     wickets_fallen = 0;
@@ -484,7 +455,7 @@ void reset_for_second_innings() {
     arrival_time[1] = 0;
     arrival_time[2] = 0;
 
-    // reset stats
+    //reset stats
     for (int i = 0; i < 20; i++) {
         arrival_time[i] = -1;
         start_time[i] = -1;
@@ -501,7 +472,7 @@ void reset_for_second_innings() {
     sem_destroy(&crease_sem);
     sem_init(&crease_sem, 0, 2);
 
-    //  reset bowler stats for 2nd innings
+    //reset bowler stats for 2nd innings
     for (int i = 0; i < NUM_BOWLERS; i++) {
         bowlers[i].runs_conceded = 0;
         bowlers[i].balls_bowled  = 0;

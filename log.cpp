@@ -5,9 +5,9 @@
 #include <ctime>
 
 // static member definitions 
-std::ofstream   Logger::file_;
+std::ofstream Logger::file_;
 pthread_mutex_t Logger::mutex_  = PTHREAD_MUTEX_INITIALIZER;
-bool            Logger::initialized_ = false;
+bool Logger::initialized_ = false;
 
 void Logger::init(const std::string& filename) {
     pthread_mutex_lock(&mutex_);
@@ -49,19 +49,19 @@ void Logger::log(const std::string& message, const std::string& tag) {
     if (!tag.empty()) {
         line << "[" << std::setw(8) << std::left << tag << "]";
     } else {
-        line << "          "; // align with tagged lines
+        line << "          "; //align with tagged lines
     }
     line << " " << message;
 
     std::string formatted = line.str();
 
-    // write to console 
+    //write to console 
     std::cout << message << std::endl;
 
-    // write richer formatted line to log file
+    //write richer formatted line to log file
     if (initialized_ && file_.is_open()) {
         file_ << formatted << "\n";
-        file_.flush();   // flush every line so log is readable mid-match
+        file_.flush();   //flush every line so log is readable mid-match
     }
 
     pthread_mutex_unlock(&mutex_);

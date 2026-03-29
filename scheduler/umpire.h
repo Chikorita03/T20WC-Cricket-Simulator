@@ -3,38 +3,25 @@
 #define NUM_BOWLERS 5
 #define OVER_BALLS 6
 
-// Scheduler state
 extern int current_bowler;
 extern int balls_in_over;
 extern int death_bowler_1;
 extern int death_bowler_2;
 extern float match_intensity;
 
-// ===== ROUND ROBIN SCHEDULING =====
-// Each bowler is treated as a process.
-// BowlerPCB represents Process Control Block (PCB)
+//PCB for each bowler to store stats
 struct BowlerPCB {
     int runs_conceded;
     int balls_bowled;
     int wickets;
 };
 
-// Array of PCBs (one per bowler)
 extern BowlerPCB bowlers[NUM_BOWLERS];
 
-// API
 void init_scheduler();
-void on_ball_completed();   // called after valid ball
+void on_ball_completed();//called when a ball is completed, to update the bowler and schedule the next one.
 int get_current_bowler();
 void record_delivery_start_context(int ball, int bowler, int striker, int non_striker);
 
-// =============================================================
-// decide_lbw()
-//   Umpire adjudicates an LBW appeal.
-//   Implemented in player_threads_2.cpp (called from
-//   batsman_thread()).  Declared here so any translation unit
-//   that includes umpire.h can reference it.
-//
-//   Returns true  → OUT
-//           false → NOT OUT
+//to decide if a LBW decision should be given based on the current match context
 bool decide_lbw();

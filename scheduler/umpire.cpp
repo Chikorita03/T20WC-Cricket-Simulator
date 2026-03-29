@@ -10,8 +10,7 @@
 using namespace std;
 
 int current_bowler = 0;
-int balls_in_over  = 0;
-// Internal indices are 0-based, so 2/3 map to printed bowlers 3/4.
+int balls_in_over = 0;
 int death_bowler_1 = 2;
 int death_bowler_2 = 3;
 float match_intensity = 0.0f;
@@ -31,7 +30,7 @@ static constexpr int TOTAL_OVERS = 20;
 static constexpr int TOTAL_BALLS = TOTAL_OVERS * OVER_BALLS;
 static constexpr int MAX_BALLS_PER_BOWLER = 4 * OVER_BALLS;
 static constexpr int PRE_DEATH_CAP_BALLS = 2 * OVER_BALLS;
-static constexpr float DEATH_OVERS_INTENSITY_THRESHOLD = 0.80f; // ~last 20%
+static constexpr float DEATH_OVERS_INTENSITY_THRESHOLD = 0.80f; //last 20% of the innings is death overs
 
 static void refresh_match_intensity() {
     float raw = static_cast<float>(balls_bowled) / static_cast<float>(TOTAL_BALLS);
@@ -42,15 +41,14 @@ static bool in_death_phase() {
     return match_intensity >= DEATH_OVERS_INTENSITY_THRESHOLD;
 }
 
-// ===== ROUND ROBIN: Bowler PCBs =====
+//to store bowler stats
 BowlerPCB bowlers[NUM_BOWLERS];
 
 void init_scheduler() {
     current_bowler = 0;
-    balls_in_over  = 0;
+    balls_in_over = 0;
     match_intensity = 0.0f;
 
-    // ===== Initialize Bowler PCBs =====
 for (int i = 0; i < NUM_BOWLERS; i++) {
     bowlers[i].runs_conceded = 0;
     bowlers[i].balls_bowled = 0;
@@ -70,24 +68,8 @@ void record_delivery_start_context(int ball, int bowler, int striker_id, int non
     delivery_start_ctx.valid = true;
 }
 
-// =============================================================
-// decide_lbw() — declared here so umpire.h can expose it.
-//
-// Implementation lives in player_threads_2.cpp where it is
-// called from batsman_thread().  This forward-declaration in
-// umpire.cpp keeps the scheduling module aware of the LBW
-// adjudication function without duplicating logic.
-//
-// OS analogy: The umpire is the kernel scheduler.  decide_lbw()
-// is a privileged system call — only the "kernel" (umpire) may
-// authoritatively resolve an LBW appeal, and batsman_thread()
-// invokes it like a syscall, blocking until a verdict is returned.
-// =============================================================
-// (decide_lbw body is in player_threads_2.cpp; see umpire.h
-//  for the extern declaration used across translation units.)
-
 void on_ball_completed() {
-    // Gantt should reflect who was on strike at the start of the ball.
+    //gantt should reflect who was on strike at the start of the ball.
     const int ball_number = delivery_start_ctx.valid ? delivery_start_ctx.ball : balls_bowled;
     const int bowler_for_ball = delivery_start_ctx.valid ? delivery_start_ctx.bowler : (current_bowler + 1);
     const int striker_for_ball = delivery_start_ctx.valid ? delivery_start_ctx.striker : striker;
@@ -97,13 +79,10 @@ void on_ball_completed() {
     balls_in_over++;
     refresh_match_intensity();
 
-    // ===== PRIORITY: HIGH-INTENSITY PHASE (DEATH OVERS) =====
+    //death over priority scheduling
     if (in_death_phase()) {
-
         if (balls_in_over >= OVER_BALLS) {
-
             balls_in_over = 0;
-
             static int toggle = 0;
             int preferred = (toggle == 0) ? death_bowler_1 : death_bowler_2;
             int alternate = (toggle == 0) ? death_bowler_2 : death_bowler_1;
@@ -113,7 +92,7 @@ void on_ball_completed() {
             } else if (bowlers[alternate].balls_bowled < MAX_BALLS_PER_BOWLER) {
                 current_bowler = alternate;
             } else {
-                // Safety fallback: choose any bowler with balls remaining.
+                //safety fallback: choose any bowler with balls remaining
                 for (int i = 0; i < NUM_BOWLERS; i++) {
                     if (bowlers[i].balls_bowled < MAX_BALLS_PER_BOWLER) {
                         current_bowler = i;
@@ -129,12 +108,13 @@ void on_ball_completed() {
                 " is bowling (intensity: " + to_string(match_intensity) + ")",
                 "UMPIRE"
             );
-                    }
+        }
+
         log_gantt(ball_number, bowler_for_ball, striker_for_ball, non_striker_for_ball);
         return;
     }
     
-    // ===== NORMAL RR =====
+    //round robin scheduling
     if (balls_in_over >= OVER_BALLS) {
 
         int over_number = balls_bowled / 6;
@@ -155,18 +135,18 @@ void on_ball_completed() {
 
         for (int i = 0; i < NUM_BOWLERS; i++) {
             int candidate = (next + i) % NUM_BOWLERS;
-            // Max 4 overs for ALL bowlers
+            //max 4 overs for each bowlers
             if (bowlers[candidate].balls_bowled >= MAX_BALLS_PER_BOWLER)
             continue;
 
-            // Before death phase, death bowlers can bowl at most 2 overs (12 balls).
+            //before death phase, death bowlers can bowl at most 2 overs (12 balls).
             if ((candidate == death_bowler_1 || candidate == death_bowler_2) &&
                 !in_death_phase() &&
                 bowlers[candidate].balls_bowled >= PRE_DEATH_CAP_BALLS) continue;
             current_bowler = candidate;
             break;
         }
-        // SAFETY FALLBACK
+        //safety fallback if all have bowled max balls
         if (bowlers[current_bowler].balls_bowled >= MAX_BALLS_PER_BOWLER) {
             for (int i = 0; i < NUM_BOWLERS; i++) {
                 if (bowlers[i].balls_bowled < MAX_BALLS_PER_BOWLER) {
